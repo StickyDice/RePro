@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "cain": "pnpm --filter cain",
-    "clark": "pnpm --filter clark"
+    "backend": "pnpm --filter backend",
+    "frontend": "pnpm --filter frontend"
   },
   "keywords": [],
   "author": "",
@@ -15,7 +15,7 @@
     "node": ">=22.21.1"
   },
   "type": "module",
-  "packageManager": "pnpm@9.15.9",
+  "packageManager": "pnpm@10.18.3",
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "vitest": "catalog:",

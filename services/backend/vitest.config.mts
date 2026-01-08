@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import swc from "unplugin-swc";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -23,4 +24,5 @@ export default defineConfig({
 			"@": resolve(__dirname, "./src"),
 		},
 	},
+	plugins: [swc.vite()],
 });
