@@ -1,0 +1,24 @@
+{
+  "name": "RePro",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "cain": "pnpm --filter cain",
+    "clark": "pnpm --filter clark"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=22.21.1"
+  },
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:"
+  }
+}
