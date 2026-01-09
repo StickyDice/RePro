@@ -19,7 +19,8 @@
 		"test:watch": "vitest",
 		"test:cov": "vitest run --coverage",
 		"test:debug": "vitest --inspect-brk",
-		"test:e2e": "vitest run --config vitest.e2e.config.ts"
+		"test:e2e": "vitest run --config vitest.e2e.config.ts",
+		"tsc": "tsc"
 	},
 	"dependencies": {
 		"@nestjs/common": "catalog:",

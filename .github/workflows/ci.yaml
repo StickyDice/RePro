@@ -1,0 +1,124 @@
+name: CI pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up node js
+        uses: actions/setup-node@v6
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run lint
+        run: pnpm lint
+
+  tsc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up node js
+        uses: actions/setup-node@v6
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run tsc
+        run: pnpm tsc
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up node js
+        uses: actions/setup-node@v6
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run tests
+        run: pnpm -r test
+
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+      backend: ${{ steps.changes.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect changed services
+        id: changes
+        run: |
+          FRONTEND_CHANGED=false
+          BACKEND_CHANGED=false
+          
+          # Determine the diff command based on event type
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For PRs, compare against base branch
+            DIFF_CMD="git diff --name-only origin/${{ github.base_ref }}...HEAD"
+          else
+            # For pushes, compare against previous commit
+            # Handle first push where before might be empty
+            if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+              DIFF_CMD="git diff --name-only --diff-filter=A HEAD"
+            else
+              DIFF_CMD="git diff --name-only ${{ github.event.before }} ${{ github.sha }}"
+            fi
+          fi
+          
+          # Check for root-level changes that affect all services
+          ROOT_CHANGED=false
+          if $DIFF_CMD | grep -qE "^(package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml)"; then
+            ROOT_CHANGED=true
+          fi
+          
+          # If root changed, build all services
+          if [ "$ROOT_CHANGED" = "true" ]; then
+            FRONTEND_CHANGED=true
+            BACKEND_CHANGED=true
+          else
+            # Check individual service changes
+            if $DIFF_CMD | grep -q "^services/frontend/"; then
+              FRONTEND_CHANGED=true
+            fi
+            if $DIFF_CMD | grep -q "^services/backend/"; then
+              BACKEND_CHANGED=true
+            fi
+          fi
+          
+          echo "frontend=$FRONTEND_CHANGED" >> $GITHUB_OUTPUT
+          echo "backend=$BACKEND_CHANGED" >> $GITHUB_OUTPUT
+          
+          echo "Frontend changed: $FRONTEND_CHANGED"
+          echo "Backend changed: $BACKEND_CHANGED"
+
+  build-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up node js
+        uses: actions/setup-node@v6
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build frontend
+        run: pnpm --filter frontend build
+
+  build-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up node js
+        uses: actions/setup-node@v6
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build backend
+        run: pnpm --filter backend build
