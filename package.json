@@ -12,7 +12,7 @@
   "author": "",
   "license": "ISC",
   "engines": {
-    "node": ">=22.21.1"
+    "node": ">=20.19.6"
   },
   "type": "module",
   "packageManager": "pnpm@10.18.3",
