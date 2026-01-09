@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "backend": "pnpm --filter backend",
-    "frontend": "pnpm --filter frontend"
+    "frontend": "pnpm --filter frontend",
+    "lint": "biome lint"
   },
   "keywords": [],
   "author": "",
