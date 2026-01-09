@@ -122,9 +122,6 @@ importers:
       rxjs:
         specifier: 'catalog:'
         version: 7.8.2
-      unplugin-swc:
-        specifier: 'catalog:'
-        version: 1.5.9(@swc/core@1.15.8(@swc/helpers@0.5.18))(rollup@4.55.1)
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
@@ -177,6 +174,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      unplugin-swc:
+        specifier: 'catalog:'
+        version: 1.5.9(@swc/core@1.15.8(@swc/helpers@0.5.18))(rollup@4.55.1)
       vitest:
         specifier: 'catalog:'
         version: 2.1.9(@types/node@22.19.3)(lightningcss@1.30.2)(terser@5.44.1)
