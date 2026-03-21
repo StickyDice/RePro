@@ -1,0 +1,8 @@
+class Rent {
+  id: UUID;
+  itemId: UUID;
+  userId: UUID;
+  startDate: string;
+  endDate: string;
+  issueDate: string; 
+}

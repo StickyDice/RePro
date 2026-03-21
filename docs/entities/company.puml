@@ -1,0 +1,15 @@
+@startuml Company Entity
+
+class Company {
+    id: UUID
+    name: string
+    INN: string // Для ООО 10 цифр, для ИП - 12
+    email: string // email доверенного компанией пользователя
+    phone: string // номер телефона доверенного компанией пользователя
+    contactName: string // имя доверенного компанией пользователя
+    createdAt: string
+    modifiedAt: string
+    subscriptionActive: boolean // is company subscription for service is active
+}
+
+@enduml

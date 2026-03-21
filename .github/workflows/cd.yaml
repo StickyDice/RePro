@@ -1,0 +1,141 @@
+name: Release CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Service to release
+        required: true
+        type: choice
+        options:
+          - backend
+          - frontend
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node and pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Run e2e tests (backend)
+        if: ${{ inputs.service == 'backend' }}
+        run: pnpm --filter backend test:e2e
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine next release version
+        id: version
+        shell: bash
+        run: |
+          git fetch --tags --force
+
+          latest_tag="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
+          if [ -z "$latest_tag" ]; then
+            base_version="0.0.0"
+            range=""
+          else
+            base_version="${latest_tag#v}"
+            range="${latest_tag}..HEAD"
+          fi
+
+          if [ -n "$range" ]; then
+            commit_messages="$(git log "$range" --format=%B)"
+          else
+            commit_messages="$(git log --format=%B)"
+          fi
+
+          bump="patch"
+          if echo "$commit_messages" | grep -qE 'BREAKING CHANGE:'; then
+            bump="major"
+          elif echo "$commit_messages" | grep -qE '^[a-zA-Z]+(\([^)]+\))?!:'; then
+            bump="major"
+          elif echo "$commit_messages" | grep -qE '^feat(\([^)]+\))?:'; then
+            bump="minor"
+          elif echo "$commit_messages" | grep -qE '^fix(\([^)]+\))?:'; then
+            bump="patch"
+          fi
+
+          IFS='.' read -r major minor patch <<< "$base_version"
+          case "$bump" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+
+          new_version="${major}.${minor}.${patch}"
+          new_tag="v${new_version}"
+          new_branch="release/${new_version}"
+
+          echo "version=${new_version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${new_tag}" >> "$GITHUB_OUTPUT"
+          echo "branch=${new_branch}" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push release branch + tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ steps.version.outputs.branch }}"
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.branch }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_LOGIN }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push backend image
+        if: ${{ inputs.service == 'backend' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/backend
+          file: ./services/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_LOGIN }}/repro-backend:${{ steps.version.outputs.tag }}
+            ${{ secrets.DOCKER_LOGIN }}/repro-backend:latest
+
+      - name: Build and push frontend image
+        if: ${{ inputs.service == 'frontend' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/frontend
+          file: ./services/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_LOGIN }}/repro-frontend:${{ steps.version.outputs.tag }}
+            ${{ secrets.DOCKER_LOGIN }}/repro-frontend:latest

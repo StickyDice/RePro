@@ -1,0 +1,16 @@
+@startuml User entity
+
+class User {
+    id: UUID;
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    patronymic: string;
+    phoneNumber: string;
+    createdAt: string;
+    modifiedAt: string;
+    company: string[]; // companies user is associated with
+}
+
+@enduml
