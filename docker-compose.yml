@@ -1,0 +1,43 @@
+# Copy `.env.example` to `.env` and set Supabase variables (cloud project or local CLI).
+# Supabase is not bundled here: use https://supabase.com/dashboard or run `pnpm exec supabase start`
+# from the repo root and paste the API URL/keys plus Postgres connection strings into `.env`, then rebuild.
+#
+#   docker compose up --build
+#
+# App: http://localhost:3000  ·  API: http://localhost:4000  ·  Data: Supabase Postgres
+
+name: repro
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: services/backend/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    environment:
+      PORT: "4000"
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL}}
+      # From container, local Supabase on host: set SUPABASE_URL_BACKEND in `.env` (see `.env.example`).
+      SUPABASE_URL: ${SUPABASE_URL_BACKEND:-${SUPABASE_URL}}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-admin@example.com}
+
+  frontend:
+    build:
+      context: .
+      dockerfile: services/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    environment:
+      PORT: "3000"

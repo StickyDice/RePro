@@ -1,0 +1,263 @@
+// RePro SaaS - Prisma Schema
+// Multitenant: shared database + shared schema + company_id in tenant tables
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============ ENUMS ============
+
+enum UserStatus {
+  active
+  pending_verification
+  disabled
+}
+
+enum MembershipStatus {
+  active
+  invited
+  blocked
+}
+
+enum RentalRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+  completed
+}
+
+enum ResourceUserExceptionRuleType {
+  allow
+  deny
+}
+
+enum NotificationChannel {
+  email
+  system
+}
+
+// ============ GLOBAL ENTITIES ============
+
+model User {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supabase_auth_id   String?  @unique
+  email              String?  @unique
+  phone_number       String?  @unique
+  first_name         String?
+  last_name          String?
+  patronymic         String?
+  status             UserStatus @default(active)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  memberships        Membership[]
+  resource_user_exceptions ResourceUserException[]
+  rental_requests    RentalRequest[]
+  rental_processed_by RentalRequest[] @relation("ProcessedBy")
+  notifications      Notification[]
+  audit_logs         AuditLog[]
+  resources_created  Resource[]       @relation("ResourceCreatedBy")
+  resources_updated  Resource[]       @relation("ResourceUpdatedBy")
+}
+
+model CompanyApplication {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_name        String
+  inn                 String
+  contact_email       String
+  contact_phone       String
+  contact_first_name  String
+  contact_last_name   String
+  contact_patronymic  String?
+  selected_plan       String
+  payment_method      String
+  status              String
+  review_comment      String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+}
+
+model Plan {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  is_active   Boolean  @default(true)
+
+  companies   Company[]
+}
+
+// ============ TENANT ENTITIES ============
+
+model Company {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String
+  inn                 String
+  contact_email       String
+  contact_phone       String
+  contact_first_name  String
+  contact_last_name   String
+  contact_patronymic  String?
+  subscription_status String
+  selected_plan_id    String?  @db.Uuid
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  selected_plan       Plan?    @relation(fields: [selected_plan_id], references: [id])
+  memberships         Membership[]
+  roles               Role[]
+  resources           Resource[]
+  resource_user_exceptions ResourceUserException[]
+  rental_requests     RentalRequest[]
+  rental_allocations  RentalAllocation[]
+  notifications       Notification[]
+  audit_logs          AuditLog[]
+}
+
+model Membership {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id       String          @db.Uuid
+  user_id          String          @db.Uuid
+  role_id          String          @db.Uuid
+  status           MembershipStatus @default(active)
+  is_default_company Boolean       @default(false)
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+
+  company          Company         @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  user             User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role             Role            @relation(fields: [role_id], references: [id], onDelete: Restrict)
+
+  @@unique([company_id, user_id])
+}
+
+model Role {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String   @db.Uuid
+  name        String
+  code        String
+  priority    Int      // higher = more privileges
+  description String?
+  is_system   Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  company     Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  memberships Membership[]
+  resources_min_role Resource[] @relation("ResourceMinRole")
+
+  @@unique([company_id, code])
+}
+
+model Resource {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id      String   @db.Uuid
+  name            String
+  code            String
+  description     String?
+  category        String?
+  quantity_total  Int      @default(1)
+  quantity_active Int      @default(1)
+  min_role_id     String?  @db.Uuid
+  is_active       Boolean  @default(true)
+  created_by      String?  @db.Uuid
+  updated_by      String?  @db.Uuid
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  company         Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  min_role        Role?    @relation("ResourceMinRole", fields: [min_role_id], references: [id], onDelete: SetNull)
+  created_by_user User?    @relation("ResourceCreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
+  updated_by_user User?    @relation("ResourceUpdatedBy", fields: [updated_by], references: [id], onDelete: SetNull)
+  resource_user_exceptions ResourceUserException[]
+  rental_requests RentalRequest[]
+  rental_allocations RentalAllocation[]
+}
+
+model ResourceUserException {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String   @db.Uuid
+  resource_id String   @db.Uuid
+  user_id     String   @db.Uuid
+  rule_type   ResourceUserExceptionRuleType
+  reason      String?
+  created_at  DateTime @default(now())
+
+  company     Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  resource    Resource @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model RentalRequest {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id        String             @db.Uuid
+  resource_id       String             @db.Uuid
+  user_id           String             @db.Uuid
+  requested_start_at DateTime
+  requested_end_at   DateTime
+  request_comment   String?
+  status            RentalRequestStatus @default(pending)
+  decision_comment  String?
+  processed_by      String?            @db.Uuid
+  processed_at      DateTime?
+  created_at        DateTime           @default(now())
+  updated_at        DateTime           @updatedAt
+
+  company           Company            @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  resource          Resource           @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+  user              User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  processed_by_user User?              @relation("ProcessedBy", fields: [processed_by], references: [id], onDelete: SetNull)
+  rental_allocations RentalAllocation[]
+}
+
+model RentalAllocation {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id       String   @db.Uuid
+  resource_id      String   @db.Uuid
+  rental_request_id String  @db.Uuid
+  start_at         DateTime
+  end_at           DateTime
+  quantity_reserved Int     @default(1)
+  google_event_id  String?
+  created_at       DateTime @default(now())
+
+  company          Company       @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  resource         Resource      @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+  rental_request   RentalRequest @relation(fields: [rental_request_id], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String            @db.Uuid
+  user_id     String            @db.Uuid
+  type        String
+  channel     NotificationChannel
+  status      String
+  payload_json Json?
+  sent_at     DateTime?
+  created_at  DateTime          @default(now())
+
+  company     Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id     String   @db.Uuid
+  actor_user_id  String   @db.Uuid
+  action         String
+  entity_type    String
+  entity_id      String?
+  payload_json   Json?
+  created_at     DateTime @default(now())
+
+  company        Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  actor          User    @relation(fields: [actor_user_id], references: [id], onDelete: Cascade)
+}

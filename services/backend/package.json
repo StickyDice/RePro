@@ -20,17 +20,29 @@
 		"test:cov": "vitest run --coverage",
 		"test:debug": "vitest --inspect-brk",
 		"test:e2e": "vitest run --config vitest.e2e.config.ts",
-		"tsc": "tsc"
+		"tsc": "tsc",
+		"prisma:generate": "prisma generate",
+		"prisma:migrate": "prisma migrate dev",
+		"prisma:seed": "tsx prisma/seed.ts",
+		"prisma:studio": "prisma studio"
+	},
+	"prisma": {
+		"seed": "tsx prisma/seed.ts"
 	},
 	"dependencies": {
 		"@nestjs/common": "catalog:",
+		"@nestjs/config": "catalog:",
 		"@nestjs/core": "catalog:",
 		"@nestjs/platform-express": "catalog:",
+		"@prisma/client": "catalog:",
+		"@supabase/supabase-js": "^2.99.3",
+		"class-transformer": "^0.5.1",
+		"class-validator": "^0.15.1",
+		"googleapis": "^144.0.0",
 		"reflect-metadata": "catalog:",
 		"rxjs": "catalog:"
 	},
 	"devDependencies": {
-    "unplugin-swc": "catalog:",
 		"@biomejs/biome": "catalog:",
 		"@nestjs/cli": "catalog:",
 		"@nestjs/schematics": "catalog:",
@@ -41,6 +53,7 @@
 		"@types/node": "catalog:",
 		"@types/supertest": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
+		"prisma": "catalog:",
 		"source-map-support": "catalog:",
 		"supertest": "catalog:",
 		"ts-loader": "catalog:",
@@ -48,6 +61,7 @@
 		"tsconfig-paths": "catalog:",
 		"tsx": "^4.21.0",
 		"typescript": "catalog:",
+		"unplugin-swc": "catalog:",
 		"vitest": "catalog:"
 	}
 }

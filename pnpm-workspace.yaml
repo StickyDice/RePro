@@ -3,6 +3,9 @@ packages:
 
 catalog:
   '@biomejs/biome': 2.3.11
+  '@nestjs/config': ^4.0.2
+  '@prisma/client': ^6.9.0
+  prisma: ^6.9.0
   '@nestjs/cli': ^11.0.0
   '@nestjs/common': ^11.0.1
   '@nestjs/core': ^11.0.1
