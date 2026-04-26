@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch } from "@shared/api/client";
+import { formatRoleLabel } from "@shared/lib/role-label";
 import {
 	getStoredCompanyId,
 	NO_COMPANY_SELECTED_MESSAGE,
@@ -30,11 +31,9 @@ import {
 	TableRow,
 } from "@shared/ui";
 import { Field, Form, Formik } from "formik";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { LogoutButton } from "@/src/features/auth/logout";
 
 interface Role {
 	id: string;
@@ -107,15 +106,7 @@ export default function AdminRolesPage() {
 	return (
 		<div className="container py-8">
 			<div className="mb-6 flex items-center justify-between">
-				<div className="flex items-center gap-4">
-					<Link
-						href="/dashboard"
-						className="text-sm text-muted-foreground hover:text-foreground"
-					>
-						← Панель управления
-					</Link>
-					<h1 className="text-2xl font-bold">Управление ролями</h1>
-				</div>
+				<h1 className="text-2xl font-bold">Управление ролями</h1>
 				<div className="flex items-center gap-2">
 					<Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
 						<DialogTrigger asChild>
@@ -207,7 +198,6 @@ export default function AdminRolesPage() {
 							</Formik>
 						</DialogContent>
 					</Dialog>
-					<LogoutButton />
 				</div>
 			</div>
 			<Card>
@@ -232,7 +222,7 @@ export default function AdminRolesPage() {
 							<TableBody>
 								{roles.map((r) => (
 									<TableRow key={r.id}>
-										<TableCell>{r.name}</TableCell>
+										<TableCell>{formatRoleLabel(r)}</TableCell>
 										<TableCell>{r.code}</TableCell>
 										<TableCell>{r.priority}</TableCell>
 										<TableCell>

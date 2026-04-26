@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { useAuth } from "@/src/features/auth/auth-provider";
+import { AppShell } from "@/src/widgets/app-shell/app-shell";
 
 function PendingVerificationRedirect() {
 	const { profile, profileLoading, loading } = useAuth();
@@ -60,7 +61,7 @@ export default function AuthLayout({
 	return (
 		<>
 			<PendingVerificationRedirect />
-			{children}
+			<AppShell>{children}</AppShell>
 		</>
 	);
 }

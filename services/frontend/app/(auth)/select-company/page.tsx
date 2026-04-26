@@ -4,7 +4,6 @@ import { Button } from "@shared/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { useAuth } from "@/src/features/auth/auth-provider";
-import { LogoutButton } from "@/src/features/auth/logout";
 import { SelectCompany } from "@/src/features/auth/select-company";
 
 export default function SelectCompanyPage() {
@@ -82,7 +81,6 @@ export default function SelectCompanyPage() {
 				>
 					Повторить
 				</Button>
-				<LogoutButton />
 			</div>
 		);
 	}
@@ -91,7 +89,6 @@ export default function SelectCompanyPage() {
 		return (
 			<div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
 				<p className="text-muted-foreground">Профиль не загружен.</p>
-				<LogoutButton />
 			</div>
 		);
 	}
@@ -110,7 +107,6 @@ export default function SelectCompanyPage() {
 				<p className="text-muted-foreground">
 					У вас пока нет привязанных компаний.
 				</p>
-				<LogoutButton />
 			</div>
 		);
 	}
@@ -118,7 +114,6 @@ export default function SelectCompanyPage() {
 	return (
 		<div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
 			<SelectCompany user={profile} />
-			<LogoutButton />
 		</div>
 	);
 }

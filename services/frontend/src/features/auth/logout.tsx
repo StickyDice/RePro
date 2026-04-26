@@ -3,8 +3,13 @@
 import { createBrowserClient } from "@shared/lib/supabase";
 import { Button } from "@shared/ui";
 import { useRouter } from "next/navigation";
+import type { ButtonProps } from "@/components/ui/button";
 
-export function LogoutButton() {
+export function LogoutButton({
+	children,
+	variant = "outline",
+	...props
+}: ButtonProps) {
 	const router = useRouter();
 
 	async function handleLogout() {
@@ -18,8 +23,8 @@ export function LogoutButton() {
 	}
 
 	return (
-		<Button variant="outline" onClick={handleLogout}>
-			Выйти
+		<Button variant={variant} onClick={handleLogout} {...props}>
+			{children ?? "Выйти"}
 		</Button>
 	);
 }

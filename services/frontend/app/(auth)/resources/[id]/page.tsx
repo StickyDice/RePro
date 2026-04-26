@@ -14,7 +14,6 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogoutButton } from "@/src/features/auth/logout";
 import { CreateRentalForm } from "@/src/features/rental/create-rental-form";
 
 export default function ResourceDetailPage() {
@@ -64,17 +63,14 @@ export default function ResourceDetailPage() {
 		if (!loading && error) {
 			return (
 				<div className="container py-8">
-					<div className="mb-6 flex items-center justify-between">
-						<div className="flex items-center gap-4">
-							<Link
-								href="/resources"
-								className="text-sm text-muted-foreground hover:text-foreground"
-							>
-								← Ресурсы
-							</Link>
-							<h1 className="text-2xl font-bold">Ресурс</h1>
-						</div>
-						<LogoutButton />
+					<div className="mb-6 flex items-center gap-4">
+						<Link
+							href="/resources"
+							className="text-sm text-muted-foreground hover:text-foreground"
+						>
+							← Ресурсы
+						</Link>
+						<h1 className="text-2xl font-bold">Ресурс</h1>
 					</div>
 					<Card>
 						<CardContent className="pt-6">
@@ -94,17 +90,14 @@ export default function ResourceDetailPage() {
 
 	return (
 		<div className="container py-8">
-			<div className="mb-6 flex items-center justify-between">
-				<div className="flex items-center gap-4">
-					<Link
-						href="/resources"
-						className="text-sm text-muted-foreground hover:text-foreground"
-					>
-						← Ресурсы
-					</Link>
-					<h1 className="text-2xl font-bold">{resource.name}</h1>
-				</div>
-				<LogoutButton />
+			<div className="mb-6 flex items-center gap-4">
+				<Link
+					href="/resources"
+					className="text-sm text-muted-foreground hover:text-foreground"
+				>
+					← Ресурсы
+				</Link>
+				<h1 className="text-2xl font-bold">{resource.name}</h1>
 			</div>
 
 			<div className="grid gap-6 lg:grid-cols-2">

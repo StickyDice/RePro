@@ -7,9 +7,7 @@ import {
 } from "@shared/lib/selected-company";
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@shared/ui";
 import { format, subMonths } from "date-fns";
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { LogoutButton } from "@/src/features/auth/logout";
 
 const defaultStart = format(subMonths(new Date(), 1), "yyyy-MM-dd");
 const defaultEnd = format(new Date(), "yyyy-MM-dd");
@@ -51,17 +49,8 @@ export default function StatisticsPage() {
 
 	return (
 		<div className="container py-8">
-			<div className="mb-6 flex items-center justify-between">
-				<div className="flex items-center gap-4">
-					<Link
-						href="/dashboard"
-						className="text-sm text-muted-foreground hover:text-foreground"
-					>
-						← Панель управления
-					</Link>
-					<h1 className="text-2xl font-bold">Статистика</h1>
-				</div>
-				<LogoutButton />
+			<div className="mb-6">
+				<h1 className="text-2xl font-bold">Статистика</h1>
 			</div>
 			{loading ? (
 				<Skeleton className="h-48 w-full" />

@@ -1,6 +1,8 @@
 "use client";
 
+import type { User } from "@entities/user/types";
 import { apiFetch } from "@shared/api/client";
+import { formatRoleLabel } from "@shared/lib/role-label";
 import { getStoredCompanyId } from "@shared/lib/selected-company";
 import { createBrowserClient } from "@shared/lib/supabase";
 import {
@@ -27,12 +29,16 @@ const MIN_PASSWORD_LENGTH = 6;
 
 export function ProfileSettings() {
 	const router = useRouter();
-	const { profile, profileLoading } = useAuth();
+	const { profile, profileLoading, refetchProfile } = useAuth();
 	const [selectedCompanyId, setSelectedCompanyId] = useState("");
 	const [savingCompany, setSavingCompany] = useState(false);
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [savingPassword, setSavingPassword] = useState(false);
+	const [firstName, setFirstName] = useState("");
+	const [lastName, setLastName] = useState("");
+	const [patronymic, setPatronymic] = useState("");
+	const [savingProfile, setSavingProfile] = useState(false);
 
 	useEffect(() => {
 		if (!profile) return;
@@ -52,14 +58,26 @@ export function ProfileSettings() {
 		);
 	}, [profile]);
 
-	const currentCompanyName = useMemo(() => {
-		if (!profile) return null;
+	useEffect(() => {
+		if (!profile) return;
+		setFirstName(profile.first_name ?? "");
+		setLastName(profile.last_name ?? "");
+		setPatronymic(profile.patronymic ?? "");
+	}, [profile]);
+
+	const currentMembership = useMemo(() => {
+		if (!profile || !selectedCompanyId) return null;
 		return (
 			profile.memberships.find(
 				(membership) => membership.company_id === selectedCompanyId,
-			)?.company.name ?? null
+			) ?? null
 		);
 	}, [profile, selectedCompanyId]);
+
+	const currentCompanyName = currentMembership?.company.name ?? null;
+	const currentRoleName = currentMembership?.role
+		? formatRoleLabel(currentMembership.role)
+		: null;
 
 	async function handleCompanySave() {
 		if (!selectedCompanyId) {
@@ -82,6 +100,30 @@ export function ProfileSettings() {
 			);
 		} finally {
 			setSavingCompany(false);
+		}
+	}
+
+	async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setSavingProfile(true);
+		try {
+			await apiFetch<{ user: User }>("/auth/me", {
+				method: "PATCH",
+				body: JSON.stringify({
+					first_name: firstName,
+					last_name: lastName,
+					patronymic,
+				}),
+			});
+			toast.success("Личные данные сохранены.");
+			refetchProfile();
+			router.refresh();
+		} catch (err) {
+			toast.error(
+				err instanceof Error ? err.message : "Не удалось сохранить данные",
+			);
+		} finally {
+			setSavingProfile(false);
 		}
 	}
 
@@ -132,6 +174,57 @@ export function ProfileSettings() {
 
 	return (
 		<div className="grid gap-6 lg:grid-cols-2">
+			<Card className="lg:col-span-2">
+				<CardHeader>
+					<CardTitle>Личные данные</CardTitle>
+					<CardDescription>
+						Имя, фамилия и отчество отображаются в сервисе и в заявках.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<form
+						className="grid gap-4 sm:grid-cols-3"
+						onSubmit={(event) => void handleProfileSubmit(event)}
+					>
+						<div className="space-y-2">
+							<Label htmlFor="profile-last-name">Фамилия</Label>
+							<Input
+								id="profile-last-name"
+								value={lastName}
+								onChange={(event) => setLastName(event.target.value)}
+								autoComplete="family-name"
+								maxLength={100}
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="profile-first-name">Имя</Label>
+							<Input
+								id="profile-first-name"
+								value={firstName}
+								onChange={(event) => setFirstName(event.target.value)}
+								autoComplete="given-name"
+								maxLength={100}
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="profile-patronymic">Отчество</Label>
+							<Input
+								id="profile-patronymic"
+								value={patronymic}
+								onChange={(event) => setPatronymic(event.target.value)}
+								autoComplete="additional-name"
+								maxLength={100}
+							/>
+						</div>
+						<div className="sm:col-span-3">
+							<Button type="submit" disabled={savingProfile}>
+								{savingProfile ? "Сохранение..." : "Сохранить личные данные"}
+							</Button>
+						</div>
+					</form>
+				</CardContent>
+			</Card>
+
 			<Card>
 				<CardHeader>
 					<CardTitle>Аккаунт</CardTitle>
@@ -213,6 +306,16 @@ export function ProfileSettings() {
 									</SelectContent>
 								</Select>
 							</div>
+							{currentRoleName ? (
+								<div className="space-y-1">
+									<p className="text-sm text-muted-foreground">
+										Роль в этой компании
+									</p>
+									<p className="text-sm font-medium text-foreground">
+										{currentRoleName}
+									</p>
+								</div>
+							) : null}
 							<Button
 								onClick={() => void handleCompanySave()}
 								disabled={savingCompany}
@@ -223,13 +326,25 @@ export function ProfileSettings() {
 							</Button>
 						</>
 					) : profile.memberships.length === 1 ? (
-						<p className="text-sm text-muted-foreground">
-							Ваша активная компания:{" "}
-							<span className="font-medium text-foreground">
-								{currentCompanyName}
-							</span>
-							.
-						</p>
+						<div className="space-y-3">
+							<p className="text-sm text-muted-foreground">
+								Ваша активная компания:{" "}
+								<span className="font-medium text-foreground">
+									{currentCompanyName}
+								</span>
+								.
+							</p>
+							{currentRoleName ? (
+								<div className="space-y-1">
+									<p className="text-sm text-muted-foreground">
+										Роль в этой компании
+									</p>
+									<p className="text-sm font-medium text-foreground">
+										{currentRoleName}
+									</p>
+								</div>
+							) : null}
+						</div>
 					) : (
 						<p className="text-sm text-muted-foreground">
 							У вас пока нет привязанных компаний.

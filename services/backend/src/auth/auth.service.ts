@@ -13,6 +13,7 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { PrismaService } from "@/prisma/prisma.service";
+import type { UpdateProfileDto } from "./dto/update-profile.dto";
 import type { RequestUser } from "./types";
 
 @Injectable()
@@ -169,6 +170,9 @@ export class AuthService {
 							supabaseUser.user_metadata?.first_name ?? user.first_name,
 						last_name:
 							supabaseUser.user_metadata?.last_name ?? user.last_name,
+						patronymic:
+							(supabaseUser.user_metadata?.patronymic as string | undefined) ??
+							user.patronymic,
 					},
 				});
 			} else {
@@ -182,6 +186,9 @@ export class AuthService {
 								supabaseUser.user_metadata?.first_name ?? null,
 							last_name:
 								supabaseUser.user_metadata?.last_name ?? null,
+							patronymic:
+								(supabaseUser.user_metadata?.patronymic as string | undefined) ??
+								null,
 							status: UserStatus.active,
 						},
 					});
@@ -217,6 +224,10 @@ export class AuthService {
 									last_name:
 										supabaseUser.user_metadata?.last_name ??
 										linked.last_name,
+									patronymic:
+										(supabaseUser.user_metadata?.patronymic as
+											| string
+											| undefined) ?? linked.patronymic,
 								},
 							});
 						} else {
@@ -275,6 +286,7 @@ export class AuthService {
 				email: true,
 				first_name: true,
 				last_name: true,
+				patronymic: true,
 				status: true,
 				memberships: {
 					where: { status: "active" },
@@ -290,7 +302,7 @@ export class AuthService {
 							},
 						},
 						role: {
-							select: { id: true, name: true, code: true },
+							select: { id: true, name: true, code: true, priority: true },
 						},
 					},
 				},
@@ -299,10 +311,84 @@ export class AuthService {
 
 		if (!user) return null;
 
+		const isPlatformAdmin = await this.isPlatformContextAdmin(
+			user.id,
+			user.email,
+		);
+
 		return {
 			...user,
-			isPlatformAdmin: this.isPlatformAdminEmail(user.email),
+			isPlatformAdmin,
 		};
+	}
+
+	async updateProfile(requestUser: RequestUser, dto: UpdateProfileDto) {
+		const data: Prisma.UserUpdateInput = {};
+		for (const key of ["first_name", "last_name", "patronymic"] as const) {
+			if (dto[key] !== undefined) {
+				const trimmed = dto[key]!.trim();
+				data[key] = trimmed === "" ? null : trimmed;
+			}
+		}
+		if (Object.keys(data).length === 0) {
+			return this.getMeWithMemberships(requestUser.id);
+		}
+
+		await this.prisma.user.update({
+			where: { id: requestUser.id },
+			data,
+		});
+
+		const row = await this.prisma.user.findUnique({
+			where: { id: requestUser.id },
+			select: { first_name: true, last_name: true, patronymic: true },
+		});
+		if (!row) {
+			throw new InternalServerErrorException("Пользователь не найден после обновления");
+		}
+
+		const { data: supaData, error } = await this.supabase.auth.admin.getUserById(
+			requestUser.supabaseAuthId,
+		);
+		if (!error && supaData.user) {
+			const { error: updateError } = await this.supabase.auth.admin.updateUserById(
+				requestUser.supabaseAuthId,
+				{
+					user_metadata: {
+						...supaData.user.user_metadata,
+						first_name: row.first_name ?? undefined,
+						last_name: row.last_name ?? undefined,
+						patronymic: row.patronymic ?? undefined,
+					},
+				},
+			);
+			if (updateError) {
+				throw new InternalServerErrorException(
+					updateError.message || "Не удалось обновить профиль в Supabase",
+				);
+			}
+		}
+
+		return this.getMeWithMemberships(requestUser.id);
+	}
+
+	/**
+	 * Full access to /platform/* and `isPlatformAdmin` in /auth/me.
+	 * Emails in PLATFORM_ADMIN_EMAILS alone are not enough: a company admin whose
+	 * contact email is also in that list (misconfiguration) must not get global
+	 * platform access — they have active membership in their company.
+	 */
+	async isPlatformContextAdmin(
+		userId: string,
+		email: string | null,
+	): Promise<boolean> {
+		if (!this.isPlatformAdminEmail(email)) {
+			return false;
+		}
+		const activeMemberships = await this.prisma.membership.count({
+			where: { user_id: userId, status: MembershipStatus.active },
+		});
+		return activeMemberships === 0;
 	}
 
 	private isPlatformAdminEmail(email: string | null): boolean {

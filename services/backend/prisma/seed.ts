@@ -13,10 +13,10 @@ const PLANS = [
 ] as const;
 
 const DEFAULT_ROLES = [
-	{ code: "employee", name: "Employee", priority: 10 },
-	{ code: "support", name: "Support", priority: 20 },
-	{ code: "moderator", name: "Moderator", priority: 30 },
-	{ code: "company_admin", name: "Company Admin", priority: 40 },
+	{ code: "employee", name: "Сотрудник", priority: 10 },
+	{ code: "support", name: "Поддержка", priority: 20 },
+	{ code: "moderator", name: "Модератор", priority: 30 },
+	{ code: "company_admin", name: "Администратор компании", priority: 40 },
 ] as const;
 
 async function main() {
@@ -52,12 +52,13 @@ async function main() {
 					code: role.code,
 					name: role.name,
 					priority: role.priority,
-					description: `Default ${role.name} role`,
+					description: `Системная роль: ${role.name}`,
 					is_system: true,
 				},
 				update: {
 					name: role.name,
 					priority: role.priority,
+					description: `Системная роль: ${role.name}`,
 				},
 			});
 		}

@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch } from "@shared/api/client";
+import { formatRoleLabel } from "@shared/lib/role-label";
 import {
 	getStoredCompanyId,
 	NO_COMPANY_SELECTED_MESSAGE,
@@ -35,11 +36,9 @@ import {
 	TableRow,
 } from "@shared/ui";
 import { Field, Form, Formik } from "formik";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { LogoutButton } from "@/src/features/auth/logout";
 
 interface Member {
 	id: string;
@@ -140,15 +139,7 @@ export default function AdminUsersPage() {
 	return (
 		<div className="container py-8">
 			<div className="mb-6 flex items-center justify-between">
-				<div className="flex items-center gap-4">
-					<Link
-						href="/dashboard"
-						className="text-sm text-muted-foreground hover:text-foreground"
-					>
-						← Панель управления
-					</Link>
-					<h1 className="text-2xl font-bold">Управление пользователями</h1>
-				</div>
+				<h1 className="text-2xl font-bold">Управление пользователями</h1>
 				<div className="flex items-center gap-2">
 					<Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
 						<DialogTrigger asChild>
@@ -251,7 +242,7 @@ export default function AdminUsersPage() {
 												<SelectContent>
 													{roles.map((role) => (
 														<SelectItem key={role.id} value={role.id}>
-															{role.name}
+															{formatRoleLabel(role)}
 														</SelectItem>
 													))}
 												</SelectContent>
@@ -277,7 +268,6 @@ export default function AdminUsersPage() {
 							</Formik>
 						</DialogContent>
 					</Dialog>
-					<LogoutButton />
 				</div>
 			</div>
 			<Card>
@@ -306,7 +296,9 @@ export default function AdminUsersPage() {
 											{m.user?.first_name} {m.user?.last_name}
 										</TableCell>
 										<TableCell>{m.user?.email ?? "-"}</TableCell>
-										<TableCell>{m.role?.name ?? m.role?.code}</TableCell>
+										<TableCell>
+											{m.role ? formatRoleLabel(m.role) : "—"}
+										</TableCell>
 										<TableCell>
 											<Badge variant="outline">
 												{membershipStatusLabel[m.status] ?? m.status}

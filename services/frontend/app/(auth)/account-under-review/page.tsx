@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogoutButton } from "@/src/features/auth/logout";
 
 export default function AccountUnderReviewPage() {
 	return (
@@ -13,7 +12,6 @@ export default function AccountUnderReviewPage() {
 						Ваш аккаунт ожидает проверки. Наша команда скоро его рассмотрит.
 						После одобрения вы получите письмо.
 					</p>
-					<LogoutButton />
 				</CardContent>
 			</Card>
 		</div>

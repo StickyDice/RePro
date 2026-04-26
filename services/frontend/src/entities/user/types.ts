@@ -10,6 +10,7 @@ export interface MembershipRole {
 	id: string;
 	name: string;
 	code: string;
+	priority: number;
 }
 
 export interface Membership {
@@ -25,6 +26,7 @@ export interface User {
 	email: string | null;
 	first_name: string | null;
 	last_name: string | null;
+	patronymic: string | null;
 	status: UserStatus;
 	isPlatformAdmin?: boolean;
 	memberships: Membership[];

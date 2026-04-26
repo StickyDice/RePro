@@ -3,6 +3,7 @@ import {
 	Controller,
 	ForbiddenException,
 	Get,
+	Patch,
 	Post,
 	Req,
 	UseGuards,
@@ -13,6 +14,7 @@ import { AuthService } from "./auth.service";
 import { PasswordResetConfirmDto } from "./dto/password-reset-confirm.dto";
 import { PasswordResetRequestDto } from "./dto/password-reset-request.dto";
 import { SelectCompanyDto } from "./dto/select-company.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
 import type { RequestUser } from "./types";
 import { User as RequestUserDecorator } from "./user.decorator";
 
@@ -37,6 +39,19 @@ export class AuthController {
 	@UseGuards(AuthGuard)
 	async me(@RequestUserDecorator() user: RequestUser) {
 		const data = await this.authService.getMeWithMemberships(user.id);
+		return { user: data };
+	}
+
+	/**
+	 * Update current user's name fields (Prisma + Supabase user_metadata).
+	 */
+	@Patch("me")
+	@UseGuards(AuthGuard)
+	async updateMe(
+		@RequestUserDecorator() user: RequestUser,
+		@Body() dto: UpdateProfileDto,
+	) {
+		const data = await this.authService.updateProfile(user, dto);
 		return { user: data };
 	}
 

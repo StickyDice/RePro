@@ -17,11 +17,9 @@ import {
 	TableHeader,
 	TableRow,
 } from "@shared/ui";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/src/features/auth/auth-provider";
-import { LogoutButton } from "@/src/features/auth/logout";
 
 interface CompanyApplication {
 	id: string;
@@ -162,17 +160,8 @@ export function PlatformCompanyApplications() {
 	if (loading) {
 		return (
 			<div className="container py-8">
-				<div className="mb-6 flex items-center justify-between">
-					<div className="flex items-center gap-4">
-						<Link
-							href="/dashboard"
-							className="text-sm text-muted-foreground hover:text-foreground"
-						>
-							← Панель управления
-						</Link>
-						<h1 className="text-2xl font-bold">Заявки компаний</h1>
-					</div>
-					<LogoutButton />
+				<div className="mb-6">
+					<h1 className="text-2xl font-bold">Заявки компаний</h1>
 				</div>
 				<Card>
 					<CardHeader>
@@ -193,17 +182,8 @@ export function PlatformCompanyApplications() {
 	if (forbidden) {
 		return (
 			<div className="container py-8">
-				<div className="mb-6 flex items-center justify-between">
-					<div className="flex items-center gap-4">
-						<Link
-							href="/dashboard"
-							className="text-sm text-muted-foreground hover:text-foreground"
-						>
-							← Панель управления
-						</Link>
-						<h1 className="text-2xl font-bold">Заявки компаний</h1>
-					</div>
-					<LogoutButton />
+				<div className="mb-6">
+					<h1 className="text-2xl font-bold">Заявки компаний</h1>
 				</div>
 				<Card>
 					<CardHeader>
@@ -222,22 +202,11 @@ export function PlatformCompanyApplications() {
 
 	return (
 		<div className="container py-8">
-			<div className="mb-6 flex items-center justify-between">
-				<div className="flex items-center gap-4">
-					<Link
-						href="/dashboard"
-						className="text-sm text-muted-foreground hover:text-foreground"
-					>
-						← Панель управления
-					</Link>
-					<div>
-						<h1 className="text-2xl font-bold">Заявки компаний</h1>
-						<p className="text-sm text-muted-foreground">
-							Проверяйте и одобряйте ожидающие заявки на подключение.
-						</p>
-					</div>
-				</div>
-				<LogoutButton />
+			<div className="mb-6">
+				<h1 className="text-2xl font-bold">Заявки компаний</h1>
+				<p className="text-sm text-muted-foreground">
+					Проверяйте и одобряйте ожидающие заявки на подключение.
+				</p>
 			</div>
 
 			<Card>
