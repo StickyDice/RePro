@@ -48,7 +48,7 @@ export class TenantContextService {
 		const companyId = this.getCompanyId();
 		if (!companyId) {
 			throw new UnauthorizedException(
-				"Company context required. Provide X-Company-Id header or select company in session.",
+				"Требуется контекст компании. Передайте заголовок X-Company-Id или выберите компанию в сессии.",
 			);
 		}
 		return companyId;
@@ -78,7 +78,7 @@ export class TenantContextService {
 	requireUserId(): string {
 		const userId = this.getUserId();
 		if (!userId) {
-			throw new UnauthorizedException("Authentication required");
+			throw new UnauthorizedException("Требуется авторизация");
 		}
 		return userId;
 	}

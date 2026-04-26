@@ -1,24 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { format } from "date-fns";
-import { apiFetch } from "@shared/api/client";
 import type { RentalRequest } from "@entities/rental-request/types";
+import { apiFetch } from "@shared/api/client";
 import {
+	getStoredCompanyId,
+	NO_COMPANY_SELECTED_MESSAGE,
+} from "@shared/lib/selected-company";
+import {
+	Badge,
 	Card,
+	CardContent,
 	CardHeader,
 	CardTitle,
-	CardContent,
+	Skeleton,
 	Table,
 	TableBody,
 	TableCell,
 	TableHead,
 	TableHeader,
 	TableRow,
-	Badge,
-	Skeleton,
 } from "@shared/ui";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 const statusVariant: Record<
 	RentalRequest["status"],
@@ -31,18 +36,37 @@ const statusVariant: Record<
 	completed: "secondary",
 };
 
+const statusLabel: Record<RentalRequest["status"], string> = {
+	pending: "Ожидает",
+	approved: "Одобрено",
+	rejected: "Отклонено",
+	cancelled: "Отменено",
+	completed: "Завершено",
+};
+
 export function RentalQueue() {
 	const [rentals, setRentals] = useState<RentalRequest[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		const companyId =
-			typeof window !== "undefined" ? localStorage.getItem("companyId") : null;
-		if (!companyId) return;
+		const companyId = getStoredCompanyId();
+		if (!companyId) {
+			setRentals([]);
+			setError(NO_COMPANY_SELECTED_MESSAGE);
+			setLoading(false);
+			return;
+		}
 		apiFetch<{ rentals: RentalRequest[] }>(`/companies/${companyId}/rentals/my`)
-			.then((data) => setRentals(data.rentals))
-			.catch((err) => setError(err instanceof Error ? err.message : "Failed"))
+			.then((data) => {
+				setRentals(data.rentals);
+				setError(null);
+			})
+			.catch((err) =>
+				setError(
+					err instanceof Error ? err.message : "Не удалось загрузить данные",
+				),
+			)
 			.finally(() => setLoading(false));
 	}, []);
 
@@ -75,16 +99,16 @@ export function RentalQueue() {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>My rentals</CardTitle>
+				<CardTitle>Мои бронирования</CardTitle>
 			</CardHeader>
 			<CardContent>
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead>Resource</TableHead>
-							<TableHead>Start</TableHead>
-							<TableHead>End</TableHead>
-							<TableHead>Status</TableHead>
+							<TableHead>Ресурс</TableHead>
+							<TableHead>Начало</TableHead>
+							<TableHead>Окончание</TableHead>
+							<TableHead>Статус</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -94,17 +118,18 @@ export function RentalQueue() {
 									{r.resource?.name ?? r.resource_id}
 								</TableCell>
 								<TableCell>
-									{format(
-										new Date(r.requested_start_at),
-										"MMM d, yyyy",
-									)}
+									{format(new Date(r.requested_start_at), "MMM d, yyyy", {
+										locale: ru,
+									})}
 								</TableCell>
 								<TableCell>
-									{format(new Date(r.requested_end_at), "MMM d, yyyy")}
+									{format(new Date(r.requested_end_at), "MMM d, yyyy", {
+										locale: ru,
+									})}
 								</TableCell>
 								<TableCell>
 									<Badge variant={statusVariant[r.status]}>
-										{r.status}
+										{statusLabel[r.status]}
 									</Badge>
 								</TableCell>
 							</TableRow>
@@ -113,9 +138,9 @@ export function RentalQueue() {
 				</Table>
 				{rentals.length === 0 && (
 					<p className="py-4 text-center text-muted-foreground">
-						No rentals yet.{" "}
+						Пока бронирований нет.{" "}
 						<Link href="/resources" className="text-primary hover:underline">
-							Browse resources
+							Открыть ресурсы
 						</Link>
 					</p>
 				)}

@@ -1,3 +1,8 @@
+import {
+	getBrowserAccessToken,
+	setBrowserAccessToken,
+} from "@shared/lib/auth-access-token";
+import { getStoredCompanyId } from "@shared/lib/selected-company";
 import { createBrowserClient as getSupabase } from "@shared/lib/supabase";
 
 const baseURL =
@@ -5,21 +10,40 @@ const baseURL =
 		? (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000")
 		: "";
 
-export async function getAuthHeaders(): Promise<Record<string, string>> {
+const GET_SESSION_TIMEOUT_MS = 8_000;
+
+async function resolveAccessToken(): Promise<string | null> {
+	let token = getBrowserAccessToken();
+	if (token) return token;
+
 	const supabase = getSupabase();
-	const {
-		data: { session },
-	} = await supabase.auth.getSession();
+	try {
+		const result = await Promise.race([
+			supabase.auth.getSession(),
+			new Promise<never>((_, reject) =>
+				setTimeout(
+					() => reject(new Error("Истекло время ожидания getSession")),
+					GET_SESSION_TIMEOUT_MS,
+				),
+			),
+		]);
+		token = result.data.session?.access_token ?? null;
+		setBrowserAccessToken(token);
+		return token;
+	} catch {
+		return null;
+	}
+}
+
+export async function getAuthHeaders(): Promise<Record<string, string>> {
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 	};
-	if (session?.access_token) {
-		headers["Authorization"] = `Bearer ${session.access_token}`;
+	const token = await resolveAccessToken();
+	if (token) {
+		headers.Authorization = `Bearer ${token}`;
 	}
-	const companyId =
-		typeof window !== "undefined"
-			? localStorage.getItem("companyId")
-			: null;
+	const companyId = getStoredCompanyId();
 	if (companyId) {
 		headers["X-Company-Id"] = companyId;
 	}
@@ -45,9 +69,9 @@ export async function apiFetch<T>(
 		let error: Error;
 		try {
 			const json = JSON.parse(text);
-			error = new Error(json.message ?? text ?? "Request failed");
+			error = new Error(json.message ?? text ?? "Ошибка запроса");
 		} catch {
-			error = new Error(text || response.statusText || "Request failed");
+			error = new Error(text || response.statusText || "Ошибка запроса");
 		}
 		(error as Error & { status?: number }).status = response.status;
 		throw error;

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { RentalQueue } from "@/src/widgets/rental-queue/rental-queue";
 import { LogoutButton } from "@/src/features/auth/logout";
+import { RentalQueue } from "@/src/widgets/rental-queue/rental-queue";
 
 export default function CalendarPage() {
 	return (
@@ -11,15 +11,15 @@ export default function CalendarPage() {
 						href="/dashboard"
 						className="text-sm text-muted-foreground hover:text-foreground"
 					>
-						← Dashboard
+						← Панель управления
 					</Link>
-					<h1 className="text-2xl font-bold">My rentals calendar</h1>
+					<h1 className="text-2xl font-bold">Календарь моих бронирований</h1>
 				</div>
 				<LogoutButton />
 			</div>
 			<p className="mb-4 text-muted-foreground">
-				View your rental requests in a list. For a full calendar view, check
-				your Google Calendar after your rentals are approved.
+				Просматривайте заявки на бронирование списком. Полный календарный вид
+				доступен в Google Calendar после одобрения бронирований.
 			</p>
 			<RentalQueue />
 		</div>

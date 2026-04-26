@@ -1,32 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Formik, Form, Field } from "formik";
-import { z } from "zod";
-import { zodToFormikErrors } from "@shared/lib/zod-formik";
-import { format, addMonths } from "date-fns";
 import { apiFetch } from "@shared/api/client";
+import { zodToFormikErrors } from "@shared/lib/zod-formik";
 import {
 	Button,
-	Input,
-	Label,
 	Card,
+	CardContent,
 	CardHeader,
 	CardTitle,
-	CardContent,
+	Input,
+	Label,
 } from "@shared/ui";
+import { addMonths, format } from "date-fns";
+import { Field, Form, Formik } from "formik";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { z } from "zod";
 
 const createRentalSchema = z
 	.object({
-		requested_start_at: z.string().min(1, "Start date is required"),
-		requested_end_at: z.string().min(1, "End date is required"),
+		requested_start_at: z.string().min(1, "Дата начала обязательна"),
+		requested_end_at: z.string().min(1, "Дата окончания обязательна"),
 		comment: z.string().max(2000).optional(),
 	})
 	.refine(
 		(data) =>
 			new Date(data.requested_start_at) < new Date(data.requested_end_at),
-		{ message: "End date must be after start date", path: ["requested_end_at"] },
+		{
+			message: "Дата окончания должна быть позже даты начала",
+			path: ["requested_end_at"],
+		},
 	);
 
 type CreateRentalFormValues = z.infer<typeof createRentalSchema>;
@@ -36,8 +39,8 @@ interface CreateRentalFormProps {
 }
 
 export function CreateRentalForm({ resourceId }: CreateRentalFormProps) {
-	const router = useRouter()
-	const [error, setError] = useState<string | null>(null)
+	const router = useRouter();
+	const [error, setError] = useState<string | null>(null);
 
 	const today = format(new Date(), "yyyy-MM-dd");
 	const defaultEnd = format(addMonths(new Date(), 1), "yyyy-MM-dd");
@@ -47,7 +50,7 @@ export function CreateRentalForm({ resourceId }: CreateRentalFormProps) {
 		const companyId =
 			typeof window !== "undefined" ? localStorage.getItem("companyId") : null;
 		if (!companyId) {
-			setError("Company context required");
+			setError("Необходимо выбрать компанию");
 			return;
 		}
 		try {
@@ -63,14 +66,16 @@ export function CreateRentalForm({ resourceId }: CreateRentalFormProps) {
 			router.push("/my-rentals");
 			router.refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to create rental");
+			setError(
+				err instanceof Error ? err.message : "Не удалось создать бронирование",
+			);
 		}
 	}
 
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Request rental</CardTitle>
+				<CardTitle>Запросить бронирование</CardTitle>
 			</CardHeader>
 			<CardContent>
 				<Formik<CreateRentalFormValues>
@@ -90,7 +95,7 @@ export function CreateRentalForm({ resourceId }: CreateRentalFormProps) {
 								</div>
 							)}
 							<div className="space-y-2">
-								<Label htmlFor="requested_start_at">Start date</Label>
+								<Label htmlFor="requested_start_at">Дата начала</Label>
 								<Field
 									as={Input}
 									id="requested_start_at"
@@ -104,7 +109,7 @@ export function CreateRentalForm({ resourceId }: CreateRentalFormProps) {
 								)}
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="requested_end_at">End date</Label>
+								<Label htmlFor="requested_end_at">Дата окончания</Label>
 								<Field
 									as={Input}
 									id="requested_end_at"
@@ -118,7 +123,7 @@ export function CreateRentalForm({ resourceId }: CreateRentalFormProps) {
 								)}
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="comment">Comment (optional)</Label>
+								<Label htmlFor="comment">Комментарий (необязательно)</Label>
 								<Field
 									as="textarea"
 									id="comment"
@@ -127,7 +132,7 @@ export function CreateRentalForm({ resourceId }: CreateRentalFormProps) {
 								/>
 							</div>
 							<Button type="submit" disabled={isSubmitting}>
-								{isSubmitting ? "Submitting..." : "Submit request"}
+								{isSubmitting ? "Отправка..." : "Отправить заявку"}
 							</Button>
 						</Form>
 					)}

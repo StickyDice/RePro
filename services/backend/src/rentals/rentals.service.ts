@@ -45,7 +45,7 @@ export class RentalsService {
 		const contextCompanyId = this.tenantContext.getCompanyId();
 		if (contextCompanyId !== companyId) {
 			throw new ForbiddenException(
-				"Company ID in path does not match active company context",
+				"ID компании в пути не совпадает с активным контекстом компании",
 			);
 		}
 	}
@@ -109,7 +109,7 @@ export class RentalsService {
 		});
 		if (!user || user.status === UserStatus.pending_verification) {
 			throw new ForbiddenException(
-				"Your account must be verified before creating rental requests",
+				"Ваш аккаунт должен быть подтверждён перед созданием заявок на бронирование",
 			);
 		}
 
@@ -122,7 +122,7 @@ export class RentalsService {
 		});
 
 		if (!resource) {
-			throw new NotFoundException("Resource not found");
+			throw new NotFoundException("Ресурс не найден");
 		}
 
 		const canAccess = await this.resourceAccess.canUserAccessResource(
@@ -131,7 +131,7 @@ export class RentalsService {
 			companyId,
 		);
 		if (!canAccess) {
-			throw new ForbiddenException("You do not have access to this resource");
+			throw new ForbiddenException("У вас нет доступа к этому ресурсу");
 		}
 
 		const startAt = new Date(dto.requested_start_at);
@@ -139,7 +139,7 @@ export class RentalsService {
 
 		if (startAt >= endAt) {
 			throw new ForbiddenException(
-				"requested_end_at must be after requested_start_at",
+				"Дата окончания должна быть позже даты начала",
 			);
 		}
 
@@ -152,7 +152,7 @@ export class RentalsService {
 			);
 		if (!isAvailable) {
 			throw new ConflictException(
-				"Resource is not available for the requested date range",
+				"Ресурс недоступен в выбранном диапазоне дат",
 			);
 		}
 
@@ -192,7 +192,7 @@ export class RentalsService {
 		});
 
 		if (!rental) {
-			throw new NotFoundException("Rental request not found");
+			throw new NotFoundException("Заявка на бронирование не найдена");
 		}
 
 		const isOwner = rental.user_id === userId;
@@ -200,7 +200,7 @@ export class RentalsService {
 
 		if (!isOwner && !isSupport) {
 			throw new ForbiddenException(
-				"You do not have access to this rental request",
+				"У вас нет доступа к этой заявке на бронирование",
 			);
 		}
 
@@ -221,11 +221,11 @@ export class RentalsService {
 		});
 
 		if (!rental) {
-			throw new NotFoundException("Rental request not found");
+			throw new NotFoundException("Заявка на бронирование не найдена");
 		}
 
 		if (rental.status !== RentalRequestStatus.pending) {
-			throw new ConflictException(`Rental request is already ${rental.status}`);
+			throw new ConflictException(`Заявка уже имеет статус: ${rental.status}`);
 		}
 
 		// Transaction: re-validate availability, create allocation, update request
@@ -241,7 +241,7 @@ export class RentalsService {
 
 			if (!isAvailable) {
 				throw new ConflictException(
-					"Resource is no longer available for the requested date range",
+					"Ресурс больше недоступен в выбранном диапазоне дат",
 				);
 			}
 
@@ -288,7 +288,7 @@ export class RentalsService {
 					startAt: rental.requested_start_at,
 					endAt: rental.requested_end_at,
 					userEmail: recipientEmail,
-					companyName: company?.name ?? "Unknown",
+					companyName: company?.name ?? "Неизвестная компания",
 					comment: rental.request_comment ?? undefined,
 				});
 				if (eventId) {
@@ -306,7 +306,7 @@ export class RentalsService {
 		if (recipientEmail) {
 			this.notificationService.sendEmail(
 				recipientEmail,
-				"Rental request approved",
+				"Заявка на бронирование одобрена",
 				"rental_approved",
 				{
 					rental_id: rentalId,
@@ -349,11 +349,11 @@ export class RentalsService {
 		});
 
 		if (!rental) {
-			throw new NotFoundException("Rental request not found");
+			throw new NotFoundException("Заявка на бронирование не найдена");
 		}
 
 		if (rental.status !== RentalRequestStatus.pending) {
-			throw new ConflictException(`Rental request is already ${rental.status}`);
+			throw new ConflictException(`Заявка уже имеет статус: ${rental.status}`);
 		}
 
 		const updated = await this.prisma.rentalRequest.update({
@@ -376,7 +376,7 @@ export class RentalsService {
 		if (recipientEmail) {
 			this.notificationService.sendEmail(
 				recipientEmail,
-				"Rental request rejected",
+				"Заявка на бронирование отклонена",
 				"rental_rejected",
 				{
 					rental_id: rentalId,
@@ -412,7 +412,7 @@ export class RentalsService {
 		});
 
 		if (!rental) {
-			throw new NotFoundException("Rental request not found");
+			throw new NotFoundException("Заявка на бронирование не найдена");
 		}
 
 		const isOwner = rental.user_id === userId;
@@ -420,13 +420,13 @@ export class RentalsService {
 
 		if (!isOwner && !isSupport) {
 			throw new ForbiddenException(
-				"You can only cancel your own pending requests, or support can cancel any",
+				"Вы можете отменять только свои ожидающие заявки, а поддержка может отменять любые",
 			);
 		}
 
 		if (isOwner && rental.status !== RentalRequestStatus.pending) {
 			throw new ForbiddenException(
-				"You can only cancel your own pending requests",
+				"Вы можете отменять только свои ожидающие заявки",
 			);
 		}
 

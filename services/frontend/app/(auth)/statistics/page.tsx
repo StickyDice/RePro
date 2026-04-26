@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { format, subMonths } from "date-fns";
 import { apiFetch } from "@shared/api/client";
+import {
+	getStoredCompanyId,
+	NO_COMPANY_SELECTED_MESSAGE,
+} from "@shared/lib/selected-company";
+import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@shared/ui";
+import { format, subMonths } from "date-fns";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { LogoutButton } from "@/src/features/auth/logout";
-import { Card, CardHeader, CardTitle, CardContent, Skeleton } from "@shared/ui";
 
 const defaultStart = format(subMonths(new Date(), 1), "yyyy-MM-dd");
 const defaultEnd = format(new Date(), "yyyy-MM-dd");
@@ -23,14 +27,24 @@ export default function StatisticsPage() {
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		const companyId = localStorage.getItem("companyId");
-		if (!companyId) return;
+		const companyId = getStoredCompanyId();
+		if (!companyId) {
+			setOverview(null);
+			setError(NO_COMPANY_SELECTED_MESSAGE);
+			setLoading(false);
+			return;
+		}
 		apiFetch<OverviewData>(
 			`/companies/${companyId}/statistics/overview?startDate=${defaultStart}&endDate=${defaultEnd}`,
 		)
-			.then((d) => setOverview(d))
+			.then((d) => {
+				setOverview(d);
+				setError(null);
+			})
 			.catch((err) =>
-				setError(err instanceof Error ? err.message : "Failed to load"),
+				setError(
+					err instanceof Error ? err.message : "Не удалось загрузить данные",
+				),
 			)
 			.finally(() => setLoading(false));
 	}, []);
@@ -43,9 +57,9 @@ export default function StatisticsPage() {
 						href="/dashboard"
 						className="text-sm text-muted-foreground hover:text-foreground"
 					>
-						← Dashboard
+						← Панель управления
 					</Link>
-					<h1 className="text-2xl font-bold">Statistics</h1>
+					<h1 className="text-2xl font-bold">Статистика</h1>
 				</div>
 				<LogoutButton />
 			</div>
@@ -62,7 +76,7 @@ export default function StatisticsPage() {
 					<Card>
 						<CardHeader>
 							<CardTitle className="text-sm font-medium">
-								Total resources
+								Всего ресурсов
 							</CardTitle>
 						</CardHeader>
 						<CardContent>
@@ -72,16 +86,18 @@ export default function StatisticsPage() {
 					<Card>
 						<CardHeader>
 							<CardTitle className="text-sm font-medium">
-								Rentals (period)
+								Бронирований за период
 							</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<p className="text-2xl font-bold">{overview.totalRentalsInPeriod}</p>
+							<p className="text-2xl font-bold">
+								{overview.totalRentalsInPeriod}
+							</p>
 						</CardContent>
 					</Card>
 					<Card>
 						<CardHeader>
-							<CardTitle className="text-sm font-medium">Approved</CardTitle>
+							<CardTitle className="text-sm font-medium">Одобрено</CardTitle>
 						</CardHeader>
 						<CardContent>
 							<p className="text-2xl font-bold text-green-600">
@@ -91,7 +107,7 @@ export default function StatisticsPage() {
 					</Card>
 					<Card>
 						<CardHeader>
-							<CardTitle className="text-sm font-medium">Rejected</CardTitle>
+							<CardTitle className="text-sm font-medium">Отклонено</CardTitle>
 						</CardHeader>
 						<CardContent>
 							<p className="text-2xl font-bold text-red-600">

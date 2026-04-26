@@ -10,7 +10,7 @@ export const User = createParamDecorator(
 		const request = ctx.switchToHttp().getRequest<{ user?: RequestUser }>();
 		const user = request.user;
 		if (!user) {
-			throw new UnauthorizedException("Authentication required");
+			throw new UnauthorizedException("Требуется авторизация");
 		}
 		return user;
 	},

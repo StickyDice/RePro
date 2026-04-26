@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { SupportRentalQueue } from "@/src/widgets/support-rental-queue/support-rental-queue";
 import { LogoutButton } from "@/src/features/auth/logout";
+import { SupportRentalQueue } from "@/src/widgets/support-rental-queue/support-rental-queue";
 
 export default function SupportRentalsPage() {
 	return (
@@ -11,9 +11,11 @@ export default function SupportRentalsPage() {
 						href="/dashboard"
 						className="text-sm text-muted-foreground hover:text-foreground"
 					>
-						← Dashboard
+						← Панель управления
 					</Link>
-					<h1 className="text-2xl font-bold">Support: Rental requests</h1>
+					<h1 className="text-2xl font-bold">
+						Поддержка: заявки на бронирование
+					</h1>
 				</div>
 				<LogoutButton />
 			</div>

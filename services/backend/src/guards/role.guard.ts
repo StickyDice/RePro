@@ -8,7 +8,6 @@ import {
 } from "@nestjs/common";
 import { REQUEST, Reflector } from "@nestjs/core";
 import type { Request } from "express";
-import { TenantGuard } from "./tenant.guard";
 
 export const MIN_ROLE_PRIORITY_KEY = "minRolePriority";
 
@@ -41,14 +40,14 @@ export class RoleGuard implements CanActivate {
 		const membership = this.request.membership;
 		if (!membership) {
 			throw new ForbiddenException(
-				"TenantGuard must be applied before RoleGuard",
+				"Перед RoleGuard должен применяться TenantGuard",
 			);
 		}
 
 		const userPriority = membership.role.priority;
 		if (userPriority < minPriority) {
 			throw new ForbiddenException(
-				"Insufficient role. Required priority >= " + minPriority,
+				`Недостаточный уровень роли. Требуется приоритет >= ${minPriority}`,
 			);
 		}
 

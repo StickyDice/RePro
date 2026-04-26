@@ -1,25 +1,27 @@
 {
-  "name": "RePro",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "backend": "pnpm --filter backend",
-    "frontend": "pnpm --filter frontend",
-    "lint": "biome lint"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "engines": {
-    "node": ">=20.19.6"
-  },
-  "type": "module",
-  "packageManager": "pnpm@10.18.3",
-  "devDependencies": {
-    "@biomejs/biome": "catalog:",
-    "vitest": "catalog:",
-    "@vitest/coverage-v8": "catalog:"
-  }
+	"name": "RePro",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"backend": "pnpm --filter backend",
+		"frontend": "pnpm --filter frontend",
+		"lint": "biome lint",
+		"docker:compose": "sh scripts/ensure-compose-env.sh",
+		"docker:up": "sh scripts/ensure-compose-env.sh up --build"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"engines": {
+		"node": ">=20.19.6"
+	},
+	"type": "module",
+	"packageManager": "pnpm@10.18.3",
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"vitest": "catalog:",
+		"@vitest/coverage-v8": "catalog:"
+	}
 }

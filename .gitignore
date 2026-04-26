@@ -1,2 +1,11 @@
 node_modules
 .vscode
+
+# Local env (root Compose + per-service)
+.env
+.env.local
+services/backend/.env
+services/frontend/.env.local
+
+# Self-hosted Supabase Postgres data (bind mount)
+docker/supabase/volumes/db/data

@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useFormik } from "formik";
-import { z } from "zod";
-import { zodToFormikErrors } from "@shared/lib/zod-formik";
 import { createBrowserClient } from "@shared/lib/supabase";
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent } from "@shared/ui";
+import { zodToFormikErrors } from "@shared/lib/zod-formik";
+import {
+	Button,
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+	Input,
+	Label,
+} from "@shared/ui";
+import { useFormik } from "formik";
+import Link from "next/link";
+import { useState } from "react";
+import { z } from "zod";
 
 const schema = z.object({
-	email: z.string().email("Invalid email"),
+	email: z.string().email("Некорректный email"),
 });
 
 export default function PasswordResetRequestPage() {
@@ -32,7 +40,11 @@ export default function PasswordResetRequestPage() {
 				if (err) throw err;
 				setSent(true);
 			} catch (e) {
-				setError(e instanceof Error ? e.message : "Failed to send reset email");
+				setError(
+					e instanceof Error
+						? e.message
+						: "Не удалось отправить письмо для сброса пароля",
+				);
 			}
 		},
 	});
@@ -42,15 +54,15 @@ export default function PasswordResetRequestPage() {
 			<div className="flex min-h-screen items-center justify-center p-4">
 				<Card className="w-full max-w-md">
 					<CardHeader>
-						<CardTitle>Check your email</CardTitle>
+						<CardTitle>Проверьте почту</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<p className="text-muted-foreground mb-4">
-							If an account exists with that email, we&apos;ve sent a password
-							reset link.
+							Если аккаунт с таким email существует, мы отправили ссылку для
+							сброса пароля.
 						</p>
 						<Link href="/login">
-							<Button variant="outline">Back to login</Button>
+							<Button variant="outline">Назад ко входу</Button>
 						</Link>
 					</CardContent>
 				</Card>
@@ -62,7 +74,7 @@ export default function PasswordResetRequestPage() {
 		<div className="flex min-h-screen items-center justify-center p-4">
 			<Card className="w-full max-w-md">
 				<CardHeader>
-					<CardTitle>Reset password</CardTitle>
+					<CardTitle>Сброс пароля</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={formik.handleSubmit} className="space-y-4">
@@ -80,16 +92,14 @@ export default function PasswordResetRequestPage() {
 								</p>
 							)}
 						</div>
-						{error && (
-							<p className="text-sm text-destructive">{error}</p>
-						)}
+						{error && <p className="text-sm text-destructive">{error}</p>}
 						<div className="flex gap-2">
 							<Button type="submit" disabled={formik.isSubmitting}>
-								Send reset link
+								Отправить ссылку
 							</Button>
 							<Link href="/login">
 								<Button type="button" variant="outline">
-									Cancel
+									Отмена
 								</Button>
 							</Link>
 						</div>

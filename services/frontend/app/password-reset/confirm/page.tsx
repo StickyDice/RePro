@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
 import { createBrowserClient } from "@shared/lib/supabase";
-import { Button, Card, CardHeader, CardTitle, CardContent } from "@shared/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle } from "@shared/ui";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function PasswordResetConfirmPage() {
-	const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+	const [status, setStatus] = useState<"loading" | "success" | "error">(
+		"loading",
+	);
 
 	useEffect(() => {
 		const supabase = createBrowserClient();
@@ -35,14 +37,14 @@ export default function PasswordResetConfirmPage() {
 			<div className="flex min-h-screen items-center justify-center p-4">
 				<Card className="w-full max-w-md">
 					<CardHeader>
-						<CardTitle>Link expired or invalid</CardTitle>
+						<CardTitle>Ссылка недействительна или устарела</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<p className="text-muted-foreground mb-4">
-							The password reset link may have expired. Please request a new one.
+							Ссылка для сброса пароля могла устареть. Запросите новую.
 						</p>
 						<Link href="/password-reset/request">
-							<Button>Request new link</Button>
+							<Button>Запросить новую ссылку</Button>
 						</Link>
 					</CardContent>
 				</Card>
@@ -54,21 +56,20 @@ export default function PasswordResetConfirmPage() {
 		<div className="flex min-h-screen items-center justify-center p-4">
 			<Card className="w-full max-w-md">
 				<CardHeader>
-					<CardTitle>Set new password</CardTitle>
+					<CardTitle>Установите новый пароль</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<p className="text-muted-foreground mb-4">
-						You have been redirected here after clicking the password reset link.
-						You can now set your new password in the Supabase dashboard, or if
-						you have a custom password update flow, it would appear here.
+						Вы были перенаправлены сюда после перехода по ссылке для сброса
+						пароля. Теперь можно установить новый пароль.
 					</p>
 					<p className="text-muted-foreground mb-4 text-sm">
-						For this MVP, Supabase handles the password update via the link. You
-						should have received an email - follow the link there to complete the
-						reset. After resetting, your account will be under review.
+						В текущей версии обновление пароля обрабатывает Supabase через
+						письмо. Завершите сброс по ссылке из письма. После смены пароля
+						аккаунт будет ожидать проверки.
 					</p>
 					<Link href="/login">
-						<Button>Go to login</Button>
+						<Button>Перейти ко входу</Button>
 					</Link>
 				</CardContent>
 			</Card>

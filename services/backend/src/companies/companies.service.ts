@@ -45,7 +45,7 @@ export class CompaniesService {
 			},
 		});
 		if (!company) {
-			throw new NotFoundException("Company not found");
+			throw new NotFoundException("Компания не найдена");
 		}
 		return company;
 	}
@@ -111,7 +111,7 @@ export class CompaniesService {
 			},
 		});
 		if (existing) {
-			throw new ConflictException("User is already a member of this company");
+			throw new ConflictException("Пользователь уже состоит в этой компании");
 		}
 
 		const isNewUser = !user.supabase_auth_id;
@@ -160,7 +160,7 @@ export class CompaniesService {
 			where: { id: membershipId, company_id: companyId },
 		});
 		if (!membership) {
-			throw new NotFoundException("Membership not found");
+			throw new NotFoundException("Связь с компанией не найдена");
 		}
 
 		return this.prisma.membership.update({
@@ -194,7 +194,7 @@ export class CompaniesService {
 			where: { id: membershipId, company_id: companyId },
 		});
 		if (!membership) {
-			throw new NotFoundException("Membership not found");
+			throw new NotFoundException("Связь с компанией не найдена");
 		}
 
 		return this.prisma.membership.update({
@@ -237,7 +237,7 @@ export class CompaniesService {
 			},
 		});
 		if (existing) {
-			throw new ConflictException(`Role with code '${code}' already exists`);
+			throw new ConflictException(`Роль с кодом '${code}' уже существует`);
 		}
 
 		return this.prisma.role.create({
@@ -260,7 +260,7 @@ export class CompaniesService {
 			where: { id: roleId, company_id: companyId },
 		});
 		if (!role) {
-			throw new NotFoundException("Role not found");
+			throw new NotFoundException("Роль не найдена");
 		}
 
 		if (dto.code !== undefined) {
@@ -273,7 +273,7 @@ export class CompaniesService {
 				},
 			});
 			if (existing) {
-				throw new ConflictException(`Role with code '${code}' already exists`);
+				throw new ConflictException(`Роль с кодом '${code}' уже существует`);
 			}
 		}
 
@@ -301,14 +301,14 @@ export class CompaniesService {
 			include: { _count: { select: { memberships: true } } },
 		});
 		if (!role) {
-			throw new NotFoundException("Role not found");
+			throw new NotFoundException("Роль не найдена");
 		}
 		if (role.is_system) {
-			throw new BadRequestException("Cannot delete system role");
+			throw new BadRequestException("Нельзя удалить системную роль");
 		}
 		if (role._count.memberships > 0) {
 			throw new BadRequestException(
-				"Cannot delete role that is assigned to members",
+				"Нельзя удалить роль, которая назначена сотрудникам",
 			);
 		}
 
@@ -325,7 +325,7 @@ export class CompaniesService {
 		});
 		if (!role) {
 			throw new BadRequestException(
-				"Role not found or does not belong to company",
+				"Роль не найдена или не принадлежит компании",
 			);
 		}
 	}

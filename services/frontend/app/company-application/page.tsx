@@ -1,5 +1,5 @@
-import { CompanyApplicationFlow } from "@/src/processes/onboarding/company-application-flow";
 import Link from "next/link";
+import { CompanyApplicationFlow } from "@/src/processes/onboarding/company-application-flow";
 
 export default function CompanyApplicationPage() {
 	return (
@@ -8,7 +8,7 @@ export default function CompanyApplicationPage() {
 				href="/"
 				className="mb-6 inline-block text-sm text-muted-foreground hover:text-foreground"
 			>
-				← Back to home
+				← На главную
 			</Link>
 			<CompanyApplicationFlow />
 		</div>

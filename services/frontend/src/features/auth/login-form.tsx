@@ -1,19 +1,34 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Formik, Form, Field } from "formik";
-import { z } from "zod";
-import { zodToFormikErrors } from "@shared/lib/zod-formik";
 import { createBrowserClient } from "@shared/lib/supabase";
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent } from "@shared/ui";
+import { zodToFormikErrors } from "@shared/lib/zod-formik";
+import {
+	Button,
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+	Input,
+	Label,
+} from "@shared/ui";
+import { Field, Form, Formik } from "formik";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { z } from "zod";
 
 const loginSchema = z.object({
-	email: z.string().email("Invalid email"),
-	password: z.string().min(1, "Password is required"),
+	email: z.string().email("Некорректный email"),
+	password: z.string().min(1, "Пароль обязателен"),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+function translateLoginError(message: string): string {
+	if (message === "Invalid login credentials") {
+		return "Неверный email или пароль";
+	}
+	return message;
+}
 
 export function LoginForm() {
 	const router = useRouter();
@@ -27,7 +42,7 @@ export function LoginForm() {
 			password: values.password,
 		});
 		if (signInError) {
-			setError(signInError.message);
+			setError(translateLoginError(signInError.message));
 			return;
 		}
 		router.push("/select-company");
@@ -37,7 +52,7 @@ export function LoginForm() {
 	return (
 		<Card className="w-full max-w-md">
 			<CardHeader>
-				<CardTitle>Sign in</CardTitle>
+				<CardTitle>Вход</CardTitle>
 			</CardHeader>
 			<CardContent>
 				<Formik<LoginFormValues>
@@ -67,7 +82,7 @@ export function LoginForm() {
 								)}
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="password">Password</Label>
+								<Label htmlFor="password">Пароль</Label>
 								<Field
 									as={Input}
 									id="password"
@@ -80,7 +95,7 @@ export function LoginForm() {
 								)}
 							</div>
 							<Button type="submit" className="w-full" disabled={isSubmitting}>
-								{isSubmitting ? "Signing in..." : "Sign in"}
+								{isSubmitting ? "Вход..." : "Войти"}
 							</Button>
 						</Form>
 					)}

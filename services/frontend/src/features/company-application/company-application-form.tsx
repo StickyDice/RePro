@@ -1,25 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Formik, Form, Field } from "formik";
-import { z } from "zod";
-import { zodToFormikErrors } from "@shared/lib/zod-formik";
 import { apiFetch } from "@shared/api/client";
+import { zodToFormikErrors } from "@shared/lib/zod-formik";
 import {
 	Button,
-	Input,
-	Label,
 	Card,
+	CardContent,
 	CardHeader,
 	CardTitle,
-	CardContent,
+	Input,
+	Label,
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
 } from "@shared/ui";
+import { Field, Form, Formik } from "formik";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { z } from "zod";
+import { useAuth } from "@/src/features/auth/auth-provider";
 
 const applicationSchema = z.object({
 	company_name: z.string().min(1).max(255),
@@ -36,15 +37,17 @@ const applicationSchema = z.object({
 type ApplicationFormValues = z.infer<typeof applicationSchema>;
 
 const PLAN_OPTIONS = [
-	{ value: "basic", label: "Basic" },
-	{ value: "pro", label: "Pro" },
-	{ value: "enterprise", label: "Enterprise" },
+	{ value: "basic", label: "Базовый" },
+	{ value: "pro", label: "Профессиональный" },
+	{ value: "enterprise", label: "Корпоративный" },
 ] as const;
 
 export function CompanyApplicationForm() {
 	const router = useRouter();
+	const { user, loading: authLoading } = useAuth();
 	const [success, setSuccess] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const authenticatedEmail = user?.email?.trim().toLowerCase() ?? "";
 
 	async function handleSubmit(values: ApplicationFormValues) {
 		setError(null);
@@ -55,7 +58,9 @@ export function CompanyApplicationForm() {
 			});
 			setSuccess(true);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Submission failed");
+			setError(
+				err instanceof Error ? err.message : "Не удалось отправить заявку",
+			);
 		}
 	}
 
@@ -63,18 +68,18 @@ export function CompanyApplicationForm() {
 		return (
 			<Card className="w-full max-w-2xl">
 				<CardHeader>
-					<CardTitle>Application submitted</CardTitle>
+					<CardTitle>Заявка отправлена</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<p className="text-muted-foreground">
-						Thank you. We will review your application and contact you soon.
+						Спасибо. Мы рассмотрим заявку и скоро с вами свяжемся.
 					</p>
 					<Button
 						variant="outline"
 						className="mt-4"
 						onClick={() => router.push("/")}
 					>
-						Back to home
+						На главную
 					</Button>
 				</CardContent>
 			</Card>
@@ -84,14 +89,15 @@ export function CompanyApplicationForm() {
 	return (
 		<Card className="w-full max-w-2xl">
 			<CardHeader>
-				<CardTitle>Company application</CardTitle>
+				<CardTitle>Заявка на подключение компании</CardTitle>
 			</CardHeader>
 			<CardContent>
 				<Formik<ApplicationFormValues>
+					enableReinitialize
 					initialValues={{
 						company_name: "",
 						inn: "",
-						contact_email: "",
+						contact_email: authenticatedEmail,
 						contact_phone: "",
 						contact_first_name: "",
 						contact_last_name: "",
@@ -111,12 +117,12 @@ export function CompanyApplicationForm() {
 							)}
 							<div className="grid gap-4 sm:grid-cols-2">
 								<div className="space-y-2">
-									<Label htmlFor="company_name">Company name</Label>
+									<Label htmlFor="company_name">Название компании</Label>
 									<Field
 										as={Input}
 										id="company_name"
 										name="company_name"
-										placeholder="Acme Inc"
+										placeholder="ООО Ромашка"
 									/>
 									{touched.company_name && errors.company_name && (
 										<p className="text-sm text-destructive">
@@ -125,7 +131,7 @@ export function CompanyApplicationForm() {
 									)}
 								</div>
 								<div className="space-y-2">
-									<Label htmlFor="inn">INN</Label>
+									<Label htmlFor="inn">ИНН</Label>
 									<Field
 										as={Input}
 										id="inn"
@@ -139,7 +145,7 @@ export function CompanyApplicationForm() {
 							</div>
 							<div className="grid gap-4 sm:grid-cols-2">
 								<div className="space-y-2">
-									<Label htmlFor="contact_first_name">First name</Label>
+									<Label htmlFor="contact_first_name">Имя</Label>
 									<Field
 										as={Input}
 										id="contact_first_name"
@@ -152,7 +158,7 @@ export function CompanyApplicationForm() {
 									)}
 								</div>
 								<div className="space-y-2">
-									<Label htmlFor="contact_last_name">Last name</Label>
+									<Label htmlFor="contact_last_name">Фамилия</Label>
 									<Field
 										as={Input}
 										id="contact_last_name"
@@ -166,7 +172,9 @@ export function CompanyApplicationForm() {
 								</div>
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="contact_patronymic">Patronymic (optional)</Label>
+								<Label htmlFor="contact_patronymic">
+									Отчество (необязательно)
+								</Label>
 								<Field
 									as={Input}
 									id="contact_patronymic"
@@ -181,7 +189,14 @@ export function CompanyApplicationForm() {
 										id="contact_email"
 										name="contact_email"
 										type="email"
+										disabled={Boolean(authenticatedEmail) || authLoading}
 									/>
+									{authenticatedEmail ? (
+										<p className="text-sm text-muted-foreground">
+											Пока вы вошли в систему, заявка привязывается к email
+											вашего аккаунта.
+										</p>
+									) : null}
 									{touched.contact_email && errors.contact_email && (
 										<p className="text-sm text-destructive">
 											{errors.contact_email}
@@ -189,7 +204,7 @@ export function CompanyApplicationForm() {
 									)}
 								</div>
 								<div className="space-y-2">
-									<Label htmlFor="contact_phone">Phone</Label>
+									<Label htmlFor="contact_phone">Телефон</Label>
 									<Field
 										as={Input}
 										id="contact_phone"
@@ -204,13 +219,13 @@ export function CompanyApplicationForm() {
 								</div>
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="selected_plan">Plan</Label>
+								<Label htmlFor="selected_plan">Тариф</Label>
 								<Select
 									value={values.selected_plan}
 									onValueChange={(v) => setFieldValue("selected_plan", v)}
 								>
 									<SelectTrigger>
-										<SelectValue placeholder="Select plan" />
+										<SelectValue placeholder="Выберите тариф" />
 									</SelectTrigger>
 									<SelectContent>
 										{PLAN_OPTIONS.map((opt) => (
@@ -227,12 +242,12 @@ export function CompanyApplicationForm() {
 								)}
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="payment_method">Payment method</Label>
+								<Label htmlFor="payment_method">Способ оплаты</Label>
 								<Field
 									as={Input}
 									id="payment_method"
 									name="payment_method"
-									placeholder="e.g. Card, Invoice"
+									placeholder="Например: карта, счёт"
 								/>
 								{touched.payment_method && errors.payment_method && (
 									<p className="text-sm text-destructive">
@@ -240,7 +255,7 @@ export function CompanyApplicationForm() {
 									</p>
 								)}
 							</div>
-							<Button type="submit">Submit application</Button>
+							<Button type="submit">Отправить заявку</Button>
 						</Form>
 					)}
 				</Formik>

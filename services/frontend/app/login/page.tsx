@@ -1,5 +1,5 @@
-import { LoginForm } from "@/src/features/auth/login-form";
 import Link from "next/link";
+import { LoginForm } from "@/src/features/auth/login-form";
 
 export default function LoginPage() {
 	return (
@@ -10,13 +10,13 @@ export default function LoginPage() {
 					href="/password-reset/request"
 					className="text-sm text-muted-foreground hover:text-foreground"
 				>
-					Forgot password?
+					Забыли пароль?
 				</Link>
 				<Link
 					href="/"
 					className="text-sm text-muted-foreground hover:text-foreground"
 				>
-					← Back to home
+					← На главную
 				</Link>
 			</div>
 		</div>

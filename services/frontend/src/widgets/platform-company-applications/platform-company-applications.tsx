@@ -1,11 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { toast } from "sonner";
 import { apiFetch } from "@shared/api/client";
-import { LogoutButton } from "@/src/features/auth/logout";
-import type { User } from "@entities/user/types";
 import {
 	Badge,
 	Button,
@@ -22,6 +17,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "@shared/ui";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { useAuth } from "@/src/features/auth/auth-provider";
+import { LogoutButton } from "@/src/features/auth/logout";
 
 interface CompanyApplication {
 	id: string;
@@ -38,18 +38,41 @@ interface CompanyApplication {
 	created_at: string;
 }
 
+interface ApplicationDecisionResult {
+	authAccount?: {
+		email: string;
+		created: boolean;
+		initialPassword: string | null;
+	};
+}
+
+const applicationStatusLabel: Record<string, string> = {
+	pending: "Ожидает",
+	approved: "Одобрена",
+	rejected: "Отклонена",
+};
+
+const planLabel: Record<string, string> = {
+	basic: "Базовый",
+	pro: "Профессиональный",
+	enterprise: "Корпоративный",
+};
+
 export function PlatformCompanyApplications() {
+	const { profile, profileLoading, profileError } = useAuth();
 	const [applications, setApplications] = useState<CompanyApplication[]>([]);
-	const [reviewComments, setReviewComments] = useState<Record<string, string>>({});
+	const [reviewComments, setReviewComments] = useState<Record<string, string>>(
+		{},
+	);
 	const [loading, setLoading] = useState(true);
 	const [forbidden, setForbidden] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [submittingId, setSubmittingId] = useState<string | null>(null);
 
-	const loadApplications = async () => {
+	const loadApplications = useCallback(async () => {
+		setLoading(true);
 		try {
-			const me = await apiFetch<{ user: User }>("/auth/me");
-			if (!me.user?.isPlatformAdmin) {
+			if (!profile?.isPlatformAdmin) {
 				setForbidden(true);
 				setApplications([]);
 				return;
@@ -62,7 +85,8 @@ export function PlatformCompanyApplications() {
 			setApplications(data.applications ?? []);
 			setError(null);
 		} catch (err) {
-			const message = err instanceof Error ? err.message : "Failed to load";
+			const message =
+				err instanceof Error ? err.message : "Не удалось загрузить данные";
 			const status = (err as Error & { status?: number })?.status;
 			if (status === 403) {
 				setForbidden(true);
@@ -74,11 +98,21 @@ export function PlatformCompanyApplications() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [profile]);
 
 	useEffect(() => {
+		if (profileLoading) return;
+		if (profileError) {
+			setLoading(false);
+			setError(profileError);
+			return;
+		}
+		if (!profile) {
+			setLoading(false);
+			return;
+		}
 		void loadApplications();
-	}, []);
+	}, [profile, profileLoading, profileError, loadApplications]);
 
 	const busyLabel = useMemo(() => {
 		if (!submittingId) return null;
@@ -92,22 +126,33 @@ export function PlatformCompanyApplications() {
 	) => {
 		setSubmittingId(applicationId);
 		try {
-			await apiFetch(`/platform/company-applications/${applicationId}/${action}`, {
-				method: "PATCH",
-				body: JSON.stringify({
-					review_comment: reviewComments[applicationId]?.trim() || undefined,
-				}),
-			});
-			toast.success(
-				action === "approve"
-					? "Application approved"
-					: "Application rejected",
+			const result = await apiFetch<ApplicationDecisionResult>(
+				`/platform/company-applications/${applicationId}/${action}`,
+				{
+					method: "PATCH",
+					body: JSON.stringify({
+						review_comment: reviewComments[applicationId]?.trim() || undefined,
+					}),
+				},
 			);
+			if (action === "approve") {
+				toast.success(
+					result.authAccount?.created
+						? "Заявка одобрена. Начальный пароль совпадает с email для входа."
+						: "Заявка одобрена. Для этого email сохранён существующий вход.",
+				);
+			} else {
+				toast.success("Заявка отклонена");
+			}
 			setReviewComments((current) => ({ ...current, [applicationId]: "" }));
 			await loadApplications();
 		} catch (err) {
 			toast.error(
-				err instanceof Error ? err.message : `Failed to ${action} application`,
+				err instanceof Error
+					? err.message
+					: action === "approve"
+						? "Не удалось одобрить заявку"
+						: "Не удалось отклонить заявку",
 			);
 		} finally {
 			setSubmittingId(null);
@@ -123,9 +168,9 @@ export function PlatformCompanyApplications() {
 							href="/dashboard"
 							className="text-sm text-muted-foreground hover:text-foreground"
 						>
-							← Dashboard
+							← Панель управления
 						</Link>
-						<h1 className="text-2xl font-bold">Company applications</h1>
+						<h1 className="text-2xl font-bold">Заявки компаний</h1>
 					</div>
 					<LogoutButton />
 				</div>
@@ -154,20 +199,20 @@ export function PlatformCompanyApplications() {
 							href="/dashboard"
 							className="text-sm text-muted-foreground hover:text-foreground"
 						>
-							← Dashboard
+							← Панель управления
 						</Link>
-						<h1 className="text-2xl font-bold">Company applications</h1>
+						<h1 className="text-2xl font-bold">Заявки компаний</h1>
 					</div>
 					<LogoutButton />
 				</div>
 				<Card>
 					<CardHeader>
-						<CardTitle>Platform admin access required</CardTitle>
+						<CardTitle>Требуется доступ администратора платформы</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<p className="text-muted-foreground">
-							Only super admins from `PLATFORM_ADMIN_EMAILS` can review company
-							applications.
+							Только супер-администраторы из `PLATFORM_ADMIN_EMAILS` могут
+							рассматривать заявки компаний.
 						</p>
 					</CardContent>
 				</Card>
@@ -183,12 +228,12 @@ export function PlatformCompanyApplications() {
 						href="/dashboard"
 						className="text-sm text-muted-foreground hover:text-foreground"
 					>
-						← Dashboard
+						← Панель управления
 					</Link>
 					<div>
-						<h1 className="text-2xl font-bold">Company applications</h1>
+						<h1 className="text-2xl font-bold">Заявки компаний</h1>
 						<p className="text-sm text-muted-foreground">
-							Review and approve pending onboarding requests.
+							Проверяйте и одобряйте ожидающие заявки на подключение.
 						</p>
 					</div>
 				</div>
@@ -197,26 +242,26 @@ export function PlatformCompanyApplications() {
 
 			<Card>
 				<CardHeader>
-					<CardTitle>Pending applications</CardTitle>
+					<CardTitle>Ожидающие заявки</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{error ? (
 						<p className="text-destructive">{error}</p>
 					) : applications.length === 0 ? (
 						<p className="text-muted-foreground">
-							No pending company applications.
+							Нет ожидающих заявок от компаний.
 						</p>
 					) : (
 						<Table>
 							<TableHeader>
 								<TableRow>
-									<TableHead>Company</TableHead>
-									<TableHead>Contact</TableHead>
-									<TableHead>Plan</TableHead>
-									<TableHead>Payment</TableHead>
-									<TableHead>Status</TableHead>
-									<TableHead>Review comment</TableHead>
-									<TableHead className="text-right">Actions</TableHead>
+									<TableHead>Компания</TableHead>
+									<TableHead>Контакт</TableHead>
+									<TableHead>Тариф</TableHead>
+									<TableHead>Оплата</TableHead>
+									<TableHead>Статус</TableHead>
+									<TableHead>Комментарий</TableHead>
+									<TableHead className="text-right">Действия</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
@@ -233,9 +278,11 @@ export function PlatformCompanyApplications() {
 									return (
 										<TableRow key={application.id}>
 											<TableCell className="align-top">
-												<div className="font-medium">{application.company_name}</div>
+												<div className="font-medium">
+													{application.company_name}
+												</div>
 												<div className="text-sm text-muted-foreground">
-													INN: {application.inn}
+													ИНН: {application.inn}
 												</div>
 											</TableCell>
 											<TableCell className="align-top">
@@ -248,13 +295,17 @@ export function PlatformCompanyApplications() {
 												</div>
 											</TableCell>
 											<TableCell className="align-top">
-												{application.selected_plan}
+												{planLabel[application.selected_plan] ??
+													application.selected_plan}
 											</TableCell>
 											<TableCell className="align-top">
 												{application.payment_method}
 											</TableCell>
 											<TableCell className="align-top">
-												<Badge variant="outline">{application.status}</Badge>
+												<Badge variant="outline">
+													{applicationStatusLabel[application.status] ??
+														application.status}
+												</Badge>
 											</TableCell>
 											<TableCell className="align-top">
 												<Input
@@ -265,7 +316,7 @@ export function PlatformCompanyApplications() {
 															[application.id]: event.target.value,
 														}))
 													}
-													placeholder="Optional review note"
+													placeholder="Необязательный комментарий"
 													disabled={isSubmitting}
 												/>
 											</TableCell>
@@ -278,7 +329,7 @@ export function PlatformCompanyApplications() {
 														}
 														disabled={isSubmitting}
 													>
-														Approve
+														Одобрить
 													</Button>
 													<Button
 														size="sm"
@@ -288,7 +339,7 @@ export function PlatformCompanyApplications() {
 														}
 														disabled={isSubmitting}
 													>
-														Reject
+														Отклонить
 													</Button>
 												</div>
 											</TableCell>
@@ -301,7 +352,7 @@ export function PlatformCompanyApplications() {
 
 					{busyLabel ? (
 						<p className="mt-4 text-sm text-muted-foreground">
-							Processing application for {busyLabel}...
+							Обрабатывается заявка для компании {busyLabel}...
 						</p>
 					) : null}
 				</CardContent>

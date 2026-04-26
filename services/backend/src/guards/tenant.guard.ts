@@ -27,16 +27,16 @@ export class TenantGuard implements CanActivate {
 		private readonly request: Request & { user?: { id: string } },
 	) {}
 
-	async canActivate(context: ExecutionContext): Promise<boolean> {
+	async canActivate(_context: ExecutionContext): Promise<boolean> {
 		const userId = this.tenantContext.getUserId() ?? this.request.user?.id;
 		if (!userId) {
-			throw new UnauthorizedException("Authentication required");
+			throw new UnauthorizedException("Требуется авторизация");
 		}
 
 		const companyId = this.tenantContext.getCompanyId();
 		if (!companyId) {
 			throw new UnauthorizedException(
-				"Company context required. Provide X-Company-Id header.",
+				"Требуется контекст компании. Передайте заголовок X-Company-Id.",
 			);
 		}
 
@@ -48,12 +48,12 @@ export class TenantGuard implements CanActivate {
 		});
 
 		if (!membership) {
-			throw new ForbiddenException("You do not have access to this company");
+			throw new ForbiddenException("У вас нет доступа к этой компании");
 		}
 
 		if (membership.status !== MembershipStatus.active) {
 			throw new ForbiddenException(
-				`Membership is ${membership.status}. Only active members can access.`,
+				`Статус участия: ${membership.status}. Доступ есть только у активных участников.`,
 			);
 		}
 

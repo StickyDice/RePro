@@ -15,7 +15,13 @@ export class CompanyApplicationsService {
 		contact_patronymic?: string;
 		selected_plan: string;
 		payment_method: string;
-	}) {
+	},
+	authenticatedEmail?: string | null) {
+		const contactEmail = (authenticatedEmail ?? data.contact_email)
+			.trim()
+			.toLowerCase();
+		const contactPhone = data.contact_phone.trim();
+
 		// Ensure plan exists
 		const plan = await this.prisma.plan.findUnique({
 			where: { code: data.selected_plan, is_active: true },
@@ -30,8 +36,8 @@ export class CompanyApplicationsService {
 			data: {
 				company_name: data.company_name,
 				inn: data.inn,
-				contact_email: data.contact_email,
-				contact_phone: data.contact_phone,
+				contact_email: contactEmail,
+				contact_phone: contactPhone,
 				contact_first_name: data.contact_first_name,
 				contact_last_name: data.contact_last_name,
 				contact_patronymic: data.contact_patronymic ?? null,

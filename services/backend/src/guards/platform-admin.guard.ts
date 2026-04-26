@@ -28,7 +28,7 @@ export class PlatformAdminGuard implements CanActivate {
 	canActivate(_context: ExecutionContext): boolean {
 		const user = this.request.user;
 		if (!user) {
-			throw new ForbiddenException("Authentication required");
+			throw new ForbiddenException("Требуется авторизация");
 		}
 
 		const emailsStr = this.config.get<string>("PLATFORM_ADMIN_EMAILS");
@@ -40,12 +40,12 @@ export class PlatformAdminGuard implements CanActivate {
 			: [];
 
 		if (adminEmails.length === 0) {
-			throw new ForbiddenException("Platform admin access is not configured");
+			throw new ForbiddenException("Доступ администратора платформы не настроен");
 		}
 
 		const userEmail = user.email?.trim().toLowerCase();
 		if (!userEmail || !adminEmails.includes(userEmail)) {
-			throw new ForbiddenException("Platform admin access required");
+			throw new ForbiddenException("Требуется доступ администратора платформы");
 		}
 
 		return true;

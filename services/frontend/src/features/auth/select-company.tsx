@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { apiFetch } from "@shared/api/client";
 import type { User } from "@entities/user/types";
-import { Button, Card, CardHeader, CardTitle, CardContent } from "@shared/ui";
+import { apiFetch } from "@shared/api/client";
+import { Button, Card, CardContent, CardHeader, CardTitle } from "@shared/ui";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface SelectCompanyProps {
 	user: User;
@@ -38,7 +38,7 @@ export function SelectCompany({ user }: SelectCompanyProps) {
 	return (
 		<Card className="w-full max-w-md">
 			<CardHeader>
-				<CardTitle>Select company</CardTitle>
+				<CardTitle>Выберите компанию</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-2">
 				{companies.map((company) => (
@@ -49,7 +49,7 @@ export function SelectCompany({ user }: SelectCompanyProps) {
 						onClick={() => handleSelect(company.id)}
 						disabled={loading !== null}
 					>
-						{loading === company.id ? "Selecting..." : company.name}
+						{loading === company.id ? "Выбор..." : company.name}
 					</Button>
 				))}
 			</CardContent>

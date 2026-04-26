@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ResourceList } from "@/src/widgets/resource-list/resource-list";
 import { LogoutButton } from "@/src/features/auth/logout";
+import { ResourceList } from "@/src/widgets/resource-list/resource-list";
 
 export default function ResourcesPage() {
 	return (
@@ -11,9 +11,9 @@ export default function ResourcesPage() {
 						href="/dashboard"
 						className="text-sm text-muted-foreground hover:text-foreground"
 					>
-						← Dashboard
+						← Панель управления
 					</Link>
-					<h1 className="text-2xl font-bold">Resources</h1>
+					<h1 className="text-2xl font-bold">Ресурсы</h1>
 				</div>
 				<LogoutButton />
 			</div>

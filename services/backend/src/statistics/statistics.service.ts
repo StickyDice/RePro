@@ -14,7 +14,7 @@ export class StatisticsService {
 		const contextCompanyId = this.tenantContext.getCompanyId();
 		if (contextCompanyId !== companyId) {
 			throw new ForbiddenException(
-				"Company ID in path does not match active company context",
+				"ID компании в пути не совпадает с активным контекстом компании",
 			);
 		}
 	}

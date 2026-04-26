@@ -7,15 +7,17 @@ export default function Home() {
 			<div className="text-center space-y-4">
 				<h1 className="text-4xl font-bold">RePro</h1>
 				<p className="text-muted-foreground">
-					Resource booking platform for companies
+					Платформа бронирования ресурсов для компаний
 				</p>
 			</div>
 			<div className="flex flex-wrap gap-4 justify-center">
 				<Button asChild>
-					<Link href="/company-application">Apply for company access</Link>
+					<Link href="/company-application">
+						Подать заявку на доступ для компании
+					</Link>
 				</Button>
 				<Button variant="outline" asChild>
-					<Link href="/login">Sign in</Link>
+					<Link href="/login">Войти</Link>
 				</Button>
 			</div>
 		</div>

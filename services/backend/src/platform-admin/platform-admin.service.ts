@@ -4,18 +4,22 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import { UserStatus } from "@prisma/client";
+import { AuthService } from "@/auth/auth.service";
 import { PrismaService } from "@/prisma/prisma.service";
 
 const DEFAULT_ROLES = [
-	{ code: "employee", name: "Employee", priority: 10 },
-	{ code: "support", name: "Support", priority: 20 },
-	{ code: "moderator", name: "Moderator", priority: 30 },
-	{ code: "company_admin", name: "Company Admin", priority: 40 },
+	{ code: "employee", name: "Сотрудник", priority: 10 },
+	{ code: "support", name: "Поддержка", priority: 20 },
+	{ code: "moderator", name: "Модератор", priority: 30 },
+	{ code: "company_admin", name: "Администратор компании", priority: 40 },
 ] as const;
 
 @Injectable()
 export class PlatformAdminService {
-	constructor(private readonly prisma: PrismaService) {}
+	constructor(
+		private readonly prisma: PrismaService,
+		private readonly authService: AuthService,
+	) {}
 
 	async listPendingApplications() {
 		return this.prisma.companyApplication.findMany({
@@ -30,11 +34,11 @@ export class PlatformAdminService {
 		});
 
 		if (!application) {
-			throw new NotFoundException("Application not found");
+			throw new NotFoundException("Заявка не найдена");
 		}
 		if (application.status !== "pending") {
 			throw new BadRequestException(
-				`Application is already ${application.status}`,
+				`Заявка уже имеет статус: ${application.status}`,
 			);
 		}
 
@@ -43,9 +47,20 @@ export class PlatformAdminService {
 		});
 		if (!plan) {
 			throw new BadRequestException(
-				`Plan ${application.selected_plan} not found. Run prisma:seed first.`,
+				`Тариф ${application.selected_plan} не найден. Сначала выполните prisma:seed.`,
 			);
 		}
+
+		const contactEmail = application.contact_email.trim().toLowerCase();
+		const contactPhone = application.contact_phone.trim();
+		const initialPassword = contactEmail;
+		const authAccount = await this.authService.ensurePasswordAccount({
+			email: contactEmail,
+			password: initialPassword,
+			firstName: application.contact_first_name,
+			lastName: application.contact_last_name,
+			phone: contactPhone,
+		});
 
 		// Use transaction for atomicity
 		return this.prisma.$transaction(async (tx) => {
@@ -54,8 +69,8 @@ export class PlatformAdminService {
 				data: {
 					name: application.company_name,
 					inn: application.inn,
-					contact_email: application.contact_email,
-					contact_phone: application.contact_phone,
+					contact_email: contactEmail,
+					contact_phone: contactPhone,
 					contact_first_name: application.contact_first_name,
 					contact_last_name: application.contact_last_name,
 					contact_patronymic: application.contact_patronymic ?? null,
@@ -73,7 +88,7 @@ export class PlatformAdminService {
 						code: role.code,
 						name: role.name,
 						priority: role.priority,
-						description: `Default ${role.name} role`,
+						description: `Системная роль: ${role.name}`,
 						is_system: true,
 					},
 				});
@@ -84,23 +99,50 @@ export class PlatformAdminService {
 				(r) => r.code === "company_admin",
 			);
 			if (!companyAdminRole) {
-				throw new Error("company_admin role was not created");
+				throw new Error("Роль company_admin не была создана");
 			}
 
 			// 3. Find or create User by contact_email
-			let user = await tx.user.findUnique({
-				where: { email: application.contact_email },
+			let user = await tx.user.findFirst({
+				where: {
+					email: {
+						equals: contactEmail,
+						mode: "insensitive",
+					},
+				},
 			});
+			if (user?.supabase_auth_id && user.supabase_auth_id !== authAccount.id) {
+				throw new BadRequestException(
+					"Этот контактный email уже привязан к другой учётной записи.",
+				);
+			}
 
 			if (!user) {
 				user = await tx.user.create({
 					data: {
-						email: application.contact_email,
-						phone_number: application.contact_phone,
+						supabase_auth_id: authAccount.id,
+						email: contactEmail,
+						phone_number: contactPhone,
 						first_name: application.contact_first_name,
 						last_name: application.contact_last_name,
 						patronymic: application.contact_patronymic ?? null,
 						status: UserStatus.active,
+					},
+				});
+			} else if (user.email !== contactEmail || user.phone_number !== contactPhone) {
+				user = await tx.user.update({
+					where: { id: user.id },
+					data: {
+						supabase_auth_id: authAccount.id,
+						email: contactEmail,
+						phone_number: contactPhone,
+					},
+				});
+			} else if (user.supabase_auth_id !== authAccount.id) {
+				user = await tx.user.update({
+					where: { id: user.id },
+					data: {
+						supabase_auth_id: authAccount.id,
 					},
 				});
 			}
@@ -132,6 +174,11 @@ export class PlatformAdminService {
 				}),
 				company,
 				user,
+				authAccount: {
+					email: authAccount.email,
+					created: authAccount.created,
+					initialPassword: authAccount.created ? initialPassword : null,
+				},
 			};
 		});
 	}
@@ -142,11 +189,11 @@ export class PlatformAdminService {
 		});
 
 		if (!application) {
-			throw new NotFoundException("Application not found");
+			throw new NotFoundException("Заявка не найдена");
 		}
 		if (application.status !== "pending") {
 			throw new BadRequestException(
-				`Application is already ${application.status}`,
+				`Заявка уже имеет статус: ${application.status}`,
 			);
 		}
 

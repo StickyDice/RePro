@@ -1,11 +1,33 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/src/features/auth/auth-provider";
-import { apiFetch } from "@shared/api/client";
-import type { User } from "@entities/user/types";
 
+function PendingVerificationRedirect() {
+	const { profile, profileLoading, loading } = useAuth();
+	const router = useRouter();
+	const pathname = usePathname();
+	const pathnameRef = useRef(pathname);
+	pathnameRef.current = pathname;
+	const routerRef = useRef(router);
+	routerRef.current = router;
+
+	useEffect(() => {
+		if (loading || profileLoading || !profile) return;
+		if (profile.status !== "pending_verification") return;
+		const path = pathnameRef.current ?? "";
+		if (!path.includes("/account-under-review")) {
+			routerRef.current.replace("/account-under-review");
+		}
+	}, [loading, profileLoading, profile]);
+
+	return null;
+}
+
+/**
+ * Session gate only. Profile (`/auth/me`) is loaded once in AuthProvider.
+ */
 export default function AuthLayout({
 	children,
 }: {
@@ -13,25 +35,15 @@ export default function AuthLayout({
 }) {
 	const { session, loading } = useAuth();
 	const router = useRouter();
-	const pathname = usePathname();
+	const routerRef = useRef(router);
+	routerRef.current = router;
 
 	useEffect(() => {
 		if (loading) return;
-		if (!session) {
-			router.replace("/login");
-			return;
+		if (!session?.user?.id) {
+			routerRef.current.replace("/login");
 		}
-
-		apiFetch<{ user: User }>("/auth/me")
-			.then((data) => {
-				if (data.user.status === "pending_verification") {
-					if (!pathname?.includes("/account-under-review")) {
-						router.replace("/account-under-review");
-					}
-				}
-			})
-			.catch(() => {});
-	}, [session, loading, router, pathname]);
+	}, [loading, session?.user?.id]);
 
 	if (loading) {
 		return (
@@ -45,5 +57,10 @@ export default function AuthLayout({
 		return null;
 	}
 
-	return <>{children}</>;
+	return (
+		<>
+			<PendingVerificationRedirect />
+			{children}
+		</>
+	);
 }

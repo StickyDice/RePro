@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { RentalQueue } from "@/src/widgets/rental-queue/rental-queue";
 import { LogoutButton } from "@/src/features/auth/logout";
+import { RentalQueue } from "@/src/widgets/rental-queue/rental-queue";
 
 export default function MyRentalsPage() {
 	return (
@@ -11,9 +11,9 @@ export default function MyRentalsPage() {
 						href="/dashboard"
 						className="text-sm text-muted-foreground hover:text-foreground"
 					>
-						← Dashboard
+						← Панель управления
 					</Link>
-					<h1 className="text-2xl font-bold">My rentals</h1>
+					<h1 className="text-2xl font-bold">Мои бронирования</h1>
 				</div>
 				<LogoutButton />
 			</div>

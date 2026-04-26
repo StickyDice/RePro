@@ -1,25 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { format } from "date-fns";
-import { apiFetch } from "@shared/api/client";
 import type { RentalRequest } from "@entities/rental-request/types";
+import { apiFetch } from "@shared/api/client";
 import {
+	getStoredCompanyId,
+	NO_COMPANY_SELECTED_MESSAGE,
+} from "@shared/lib/selected-company";
+import {
+	Badge,
+	Button,
 	Card,
+	CardContent,
 	CardHeader,
 	CardTitle,
-	CardContent,
+	Skeleton,
 	Table,
 	TableBody,
 	TableCell,
 	TableHead,
 	TableHeader,
 	TableRow,
-	Badge,
-	Button,
-	Skeleton,
 } from "@shared/ui";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 const statusVariant: Record<
@@ -33,21 +37,38 @@ const statusVariant: Record<
 	completed: "secondary",
 };
 
+const statusLabel: Record<RentalRequest["status"], string> = {
+	pending: "Ожидает",
+	approved: "Одобрено",
+	rejected: "Отклонено",
+	cancelled: "Отменено",
+	completed: "Завершено",
+};
+
 export function SupportRentalQueue() {
 	const [rentals, setRentals] = useState<RentalRequest[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
 	const fetchRentals = () => {
-		const companyId =
-			typeof window !== "undefined" ? localStorage.getItem("companyId") : null;
-		if (!companyId) return;
+		const companyId = getStoredCompanyId();
+		if (!companyId) {
+			setRentals([]);
+			setError(NO_COMPANY_SELECTED_MESSAGE);
+			setLoading(false);
+			return;
+		}
 		apiFetch<{ rentals: RentalRequest[] }>(
 			`/companies/${companyId}/rentals?status=pending`,
 		)
-			.then((data) => setRentals(data.rentals ?? []))
+			.then((data) => {
+				setRentals(data.rentals ?? []);
+				setError(null);
+			})
 			.catch((err) =>
-				setError(err instanceof Error ? err.message : "Failed to load"),
+				setError(
+					err instanceof Error ? err.message : "Не удалось загрузить данные",
+				),
 			)
 			.finally(() => setLoading(false));
 	};
@@ -57,32 +78,38 @@ export function SupportRentalQueue() {
 	}, []);
 
 	const handleApprove = async (rentalId: string) => {
-		const companyId = localStorage.getItem("companyId");
+		const companyId = getStoredCompanyId();
 		if (!companyId) return;
 		try {
 			await apiFetch(`/companies/${companyId}/rentals/${rentalId}/approve`, {
 				method: "PATCH",
 				body: JSON.stringify({}),
 			});
-			toast.success("Rental approved");
+			toast.success("Бронирование одобрено");
 			fetchRentals();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Failed to approve");
+			toast.error(
+				err instanceof Error ? err.message : "Не удалось одобрить бронирование",
+			);
 		}
 	};
 
 	const handleReject = async (rentalId: string) => {
-		const companyId = localStorage.getItem("companyId");
+		const companyId = getStoredCompanyId();
 		if (!companyId) return;
 		try {
 			await apiFetch(`/companies/${companyId}/rentals/${rentalId}/reject`, {
 				method: "PATCH",
-				body: JSON.stringify({ decision_comment: "Rejected by support" }),
+				body: JSON.stringify({ decision_comment: "Отклонено поддержкой" }),
 			});
-			toast.success("Rental rejected");
+			toast.success("Бронирование отклонено");
 			fetchRentals();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Failed to reject");
+			toast.error(
+				err instanceof Error
+					? err.message
+					: "Не удалось отклонить бронирование",
+			);
 		}
 	};
 
@@ -115,18 +142,18 @@ export function SupportRentalQueue() {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Support: Pending rental requests</CardTitle>
+				<CardTitle>Поддержка: ожидающие заявки на бронирование</CardTitle>
 			</CardHeader>
 			<CardContent>
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead>Resource</TableHead>
-							<TableHead>Requester</TableHead>
-							<TableHead>Start</TableHead>
-							<TableHead>End</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead className="text-right">Actions</TableHead>
+							<TableHead>Ресурс</TableHead>
+							<TableHead>Заявитель</TableHead>
+							<TableHead>Начало</TableHead>
+							<TableHead>Окончание</TableHead>
+							<TableHead>Статус</TableHead>
+							<TableHead className="text-right">Действия</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -135,20 +162,21 @@ export function SupportRentalQueue() {
 								<TableCell className="font-medium">
 									{r.resource?.name ?? r.resource_id}
 								</TableCell>
+								<TableCell>{r.user?.email ?? r.user_id}</TableCell>
 								<TableCell>
-									{r.user?.email ?? r.user_id}
+									{format(new Date(r.requested_start_at), "MMM d, yyyy", {
+										locale: ru,
+									})}
 								</TableCell>
 								<TableCell>
-									{format(
-										new Date(r.requested_start_at),
-										"MMM d, yyyy",
-									)}
+									{format(new Date(r.requested_end_at), "MMM d, yyyy", {
+										locale: ru,
+									})}
 								</TableCell>
 								<TableCell>
-									{format(new Date(r.requested_end_at), "MMM d, yyyy")}
-								</TableCell>
-								<TableCell>
-									<Badge variant={statusVariant[r.status]}>{r.status}</Badge>
+									<Badge variant={statusVariant[r.status]}>
+										{statusLabel[r.status]}
+									</Badge>
 								</TableCell>
 								<TableCell className="text-right">
 									{r.status === "pending" && (
@@ -158,14 +186,14 @@ export function SupportRentalQueue() {
 												variant="default"
 												onClick={() => handleApprove(r.id)}
 											>
-												Approve
+												Одобрить
 											</Button>
 											<Button
 												size="sm"
 												variant="destructive"
 												onClick={() => handleReject(r.id)}
 											>
-												Reject
+												Отклонить
 											</Button>
 										</div>
 									)}
@@ -176,7 +204,7 @@ export function SupportRentalQueue() {
 				</Table>
 				{rentals.length === 0 && (
 					<p className="py-4 text-center text-muted-foreground">
-						No pending rental requests.
+						Нет ожидающих заявок на бронирование.
 					</p>
 				)}
 			</CardContent>

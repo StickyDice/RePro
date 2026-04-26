@@ -54,7 +54,7 @@ export class AuthController {
 			dto.companyId,
 		);
 		if (!hasMembership) {
-			throw new ForbiddenException("You do not have access to this company");
+			throw new ForbiddenException("У вас нет доступа к этой компании");
 		}
 		return { ok: true, companyId: dto.companyId };
 	}
@@ -65,7 +65,7 @@ export class AuthController {
 	@Post("password-reset/request")
 	async requestPasswordReset(@Body() dto: PasswordResetRequestDto) {
 		await this.authService.requestPasswordReset(dto.email);
-		return { ok: true, message: "If the email exists, a reset link was sent" };
+		return { ok: true, message: "Если email существует, ссылка для сброса отправлена" };
 	}
 
 	/**
@@ -89,7 +89,7 @@ export class AuthController {
 		}
 		if (!userId && dto.userId) userId = dto.userId;
 		if (!userId) {
-			return { ok: false, message: "Provide Bearer token or userId in body" };
+			return { ok: false, message: "Передайте Bearer-токен или userId в теле запроса" };
 		}
 		await this.authService.confirmPasswordReset(userId);
 		return { ok: true };

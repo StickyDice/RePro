@@ -28,13 +28,13 @@ export class AuthGuard implements CanActivate {
 
 		if (!token) {
 			throw new UnauthorizedException(
-				"Missing or invalid Authorization header",
+				"Заголовок Authorization отсутствует или некорректен",
 			);
 		}
 
 		const supabaseUser = await this.authService.verifyToken(token);
 		if (!supabaseUser) {
-			throw new UnauthorizedException("Invalid or expired token");
+			throw new UnauthorizedException("Токен недействителен или истёк");
 		}
 
 		const requestUser =

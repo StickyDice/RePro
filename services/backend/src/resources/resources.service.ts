@@ -88,11 +88,11 @@ export class ResourcesService {
 		});
 
 		if (!resource) {
-			throw new NotFoundException("Resource not found");
+			throw new NotFoundException("Ресурс не найден");
 		}
 
 		if (!resource.is_active) {
-			throw new NotFoundException("Resource not found");
+			throw new NotFoundException("Ресурс не найден");
 		}
 
 		const canAccess = await this.resourceAccess.canUserAccessResource(
@@ -101,7 +101,7 @@ export class ResourcesService {
 			companyId,
 		);
 		if (!canAccess) {
-			throw new ForbiddenException("You do not have access to this resource");
+			throw new ForbiddenException("У вас нет доступа к этому ресурсу");
 		}
 
 		return { resource };
@@ -120,7 +120,7 @@ export class ResourcesService {
 		});
 
 		if (!resource) {
-			throw new NotFoundException("Resource not found");
+			throw new NotFoundException("Ресурс не найден");
 		}
 
 		const updated = await this.prisma.resource.update({
@@ -155,7 +155,7 @@ export class ResourcesService {
 		});
 
 		if (!resource) {
-			throw new NotFoundException("Resource not found");
+			throw new NotFoundException("Ресурс не найден");
 		}
 
 		await this.prisma.resource.update({
@@ -180,7 +180,7 @@ export class ResourcesService {
 		});
 
 		if (!resource) {
-			throw new NotFoundException("Resource not found");
+			throw new NotFoundException("Ресурс не найден");
 		}
 
 		const canAccess = await this.resourceAccess.canUserAccessResource(
@@ -189,7 +189,7 @@ export class ResourcesService {
 			companyId,
 		);
 		if (!canAccess) {
-			throw new ForbiddenException("You do not have access to this resource");
+			throw new ForbiddenException("У вас нет доступа к этому ресурсу");
 		}
 
 		const quantityActive = resource.quantity_active;
@@ -311,7 +311,7 @@ export class ResourcesService {
 		});
 
 		if (!resource) {
-			throw new NotFoundException("Resource not found");
+			throw new NotFoundException("Ресурс не найден");
 		}
 
 		const exceptions = await this.prisma.resourceUserException.findMany({
@@ -334,7 +334,7 @@ export class ResourcesService {
 		});
 
 		if (!resource) {
-			throw new NotFoundException("Resource not found");
+			throw new NotFoundException("Ресурс не найден");
 		}
 
 		const exception = await this.prisma.resourceUserException.create({
@@ -367,7 +367,7 @@ export class ResourcesService {
 		});
 
 		if (!exception) {
-			throw new NotFoundException("Exception not found");
+			throw new NotFoundException("Исключение не найдено");
 		}
 
 		await this.prisma.resourceUserException.delete({
@@ -381,7 +381,7 @@ export class ResourcesService {
 		const contextCompanyId = this.tenantContext.getCompanyId();
 		if (contextCompanyId !== companyId) {
 			throw new ForbiddenException(
-				"Company ID in path does not match active company context",
+				"ID компании в пути не совпадает с активным контекстом компании",
 			);
 		}
 	}
