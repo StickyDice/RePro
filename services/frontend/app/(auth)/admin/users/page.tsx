@@ -8,6 +8,13 @@ import {
 } from "@shared/lib/selected-company";
 import { zodToFormikErrors } from "@shared/lib/zod-formik";
 import {
+	filterBySearch,
+	type SortDirection,
+	sortByColumn,
+	toggleSortColumn,
+} from "@shared/lib/client-table";
+import { SortableTableHead } from "@shared/ui/sortable-table-head";
+import {
 	Badge,
 	Button,
 	Card,
@@ -31,12 +38,11 @@ import {
 	Table,
 	TableBody,
 	TableCell,
-	TableHead,
 	TableHeader,
 	TableRow,
 } from "@shared/ui";
 import { Field, Form, Formik } from "formik";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -78,12 +84,22 @@ const addMemberSchema = z.object({
 
 type AddMemberFormValues = z.infer<typeof addMemberSchema>;
 
+type MemberSortKey = "name" | "email" | "role" | "status";
+
+function memberDisplayName(m: Member): string {
+	const parts = [m.user?.first_name, m.user?.last_name].filter(Boolean);
+	return parts.join(" ").trim();
+}
+
 export default function AdminUsersPage() {
 	const [members, setMembers] = useState<Member[]>([]);
 	const [roles, setRoles] = useState<RoleOption[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [sortKey, setSortKey] = useState<MemberSortKey | null>(null);
+	const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
 	const loadData = useCallback(async () => {
 		const companyId = getStoredCompanyId();
@@ -114,6 +130,37 @@ export default function AdminUsersPage() {
 	useEffect(() => {
 		void loadData();
 	}, [loadData]);
+
+	const visibleMembers = useMemo(() => {
+		const searched = filterBySearch(members, searchQuery, (m) =>
+			[
+				memberDisplayName(m),
+				m.user?.email ?? "",
+				m.role ? formatRoleLabel(m.role) : "",
+				membershipStatusLabel[m.status] ?? m.status,
+			].join(" "),
+		);
+		return sortByColumn(searched, sortKey, sortDir, (m, key) => {
+			switch (key) {
+				case "name":
+					return memberDisplayName(m) || m.user?.email || "";
+				case "email":
+					return m.user?.email ?? "";
+				case "role":
+					return m.role ? formatRoleLabel(m.role) : "";
+				case "status":
+					return membershipStatusLabel[m.status] ?? m.status;
+				default:
+					return "";
+			}
+		});
+	}, [members, searchQuery, sortKey, sortDir]);
+
+	function handleSort(columnKey: string) {
+		const next = toggleSortColumn(sortKey, sortDir, columnKey as MemberSortKey);
+		setSortKey(next.sortKey);
+		setSortDir(next.sortDir);
+	}
 
 	async function handleAddMember(values: AddMemberFormValues) {
 		const companyId = getStoredCompanyId();
@@ -280,34 +327,71 @@ export default function AdminUsersPage() {
 					) : error ? (
 						<p className="text-destructive">{error}</p>
 					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Имя</TableHead>
-									<TableHead>Email</TableHead>
-									<TableHead>Роль</TableHead>
-									<TableHead>Статус</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{members.map((m) => (
-									<TableRow key={m.id}>
-										<TableCell>
-											{m.user?.first_name} {m.user?.last_name}
-										</TableCell>
-										<TableCell>{m.user?.email ?? "-"}</TableCell>
-										<TableCell>
-											{m.role ? formatRoleLabel(m.role) : "—"}
-										</TableCell>
-										<TableCell>
-											<Badge variant="outline">
-												{membershipStatusLabel[m.status] ?? m.status}
-											</Badge>
-										</TableCell>
+						<>
+							<Input
+								placeholder="Поиск по таблице…"
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								className="mb-4 max-w-sm"
+							/>
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<SortableTableHead
+											label="Имя"
+											columnKey="name"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Email"
+											columnKey="email"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Роль"
+											columnKey="role"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Статус"
+											columnKey="status"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
 									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+								</TableHeader>
+								<TableBody>
+									{visibleMembers.map((m) => (
+										<TableRow key={m.id}>
+											<TableCell>
+												{m.user?.first_name} {m.user?.last_name}
+											</TableCell>
+											<TableCell>{m.user?.email ?? "-"}</TableCell>
+											<TableCell>
+												{m.role ? formatRoleLabel(m.role) : "—"}
+											</TableCell>
+											<TableCell>
+												<Badge variant="outline">
+													{membershipStatusLabel[m.status] ?? m.status}
+												</Badge>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+							{members.length > 0 && visibleMembers.length === 0 ? (
+								<p className="py-4 text-center text-muted-foreground">
+									Ничего не найдено.
+								</p>
+							) : null}
+						</>
 					)}
 				</CardContent>
 			</Card>

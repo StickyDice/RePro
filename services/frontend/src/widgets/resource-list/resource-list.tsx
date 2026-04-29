@@ -30,9 +30,16 @@ import {
 	TableHeader,
 	TableRow,
 } from "@shared/ui";
+import {
+	filterBySearch,
+	type SortDirection,
+	sortByColumn,
+	toggleSortColumn,
+} from "@shared/lib/client-table";
+import { SortableTableHead } from "@shared/ui/sortable-table-head";
 import { Field, Form, Formik } from "formik";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -53,11 +60,16 @@ const createResourceSchema = z.object({
 
 type CreateResourceFormValues = z.infer<typeof createResourceSchema>;
 
+type ResourceSortKey = "name" | "code" | "category" | "availability";
+
 export function ResourceList() {
 	const [resources, setResources] = useState<Resource[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [sortKey, setSortKey] = useState<ResourceSortKey | null>(null);
+	const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
 	const loadResources = useCallback(async () => {
 		const companyId = getStoredCompanyId();
@@ -85,6 +97,38 @@ export function ResourceList() {
 	useEffect(() => {
 		void loadResources();
 	}, [loadResources]);
+
+	const visibleResources = useMemo(() => {
+		const searched = filterBySearch(resources, searchQuery, (r) =>
+			[
+				r.name,
+				r.code,
+				r.category ?? "",
+				String(r.quantity_active),
+				String(r.quantity_total),
+			].join(" "),
+		);
+		return sortByColumn(searched, sortKey, sortDir, (r, key) => {
+			switch (key) {
+				case "name":
+					return r.name;
+				case "code":
+					return r.code;
+				case "category":
+					return r.category ?? "";
+				case "availability":
+					return r.quantity_active / Math.max(r.quantity_total, 1);
+				default:
+					return "";
+			}
+		});
+	}, [resources, searchQuery, sortKey, sortDir]);
+
+	function handleSort(columnKey: string) {
+		const next = toggleSortColumn(sortKey, sortDir, columnKey as ResourceSortKey);
+		setSortKey(next.sortKey);
+		setSortDir(next.sortDir);
+	}
 
 	async function handleCreateResource(values: CreateResourceFormValues) {
 		const companyId = getStoredCompanyId();
@@ -263,18 +307,48 @@ export function ResourceList() {
 					</div>
 				</CardHeader>
 				<CardContent>
+					<Input
+						placeholder="Поиск по таблице…"
+						value={searchQuery}
+						onChange={(e) => setSearchQuery(e.target.value)}
+						className="mb-4 max-w-sm"
+					/>
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead>Название</TableHead>
-								<TableHead>Код</TableHead>
-								<TableHead>Категория</TableHead>
-								<TableHead>Доступность</TableHead>
-								<TableHead />
+								<SortableTableHead
+									label="Название"
+									columnKey="name"
+									activeKey={sortKey}
+									direction={sortDir}
+									onSort={handleSort}
+								/>
+								<SortableTableHead
+									label="Код"
+									columnKey="code"
+									activeKey={sortKey}
+									direction={sortDir}
+									onSort={handleSort}
+								/>
+								<SortableTableHead
+									label="Категория"
+									columnKey="category"
+									activeKey={sortKey}
+									direction={sortDir}
+									onSort={handleSort}
+								/>
+								<SortableTableHead
+									label="Доступность"
+									columnKey="availability"
+									activeKey={sortKey}
+									direction={sortDir}
+									onSort={handleSort}
+								/>
+								<TableHead className="w-[1%]" />
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{resources.map((r) => (
+							{visibleResources.map((r) => (
 								<TableRow key={r.id}>
 									<TableCell className="font-medium">{r.name}</TableCell>
 									<TableCell>{r.code}</TableCell>
@@ -298,6 +372,11 @@ export function ResourceList() {
 							))}
 						</TableBody>
 					</Table>
+					{resources.length > 0 && visibleResources.length === 0 ? (
+						<p className="py-4 text-center text-muted-foreground">
+							Ничего не найдено.
+						</p>
+					) : null}
 					{resources.length === 0 && (
 						<p className="py-4 text-center text-muted-foreground">
 							Ресурсы не найдены.

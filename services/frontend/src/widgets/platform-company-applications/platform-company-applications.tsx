@@ -2,6 +2,13 @@
 
 import { apiFetch } from "@shared/api/client";
 import {
+	filterBySearch,
+	type SortDirection,
+	sortByColumn,
+	toggleSortColumn,
+} from "@shared/lib/client-table";
+import { SortableTableHead } from "@shared/ui/sortable-table-head";
+import {
 	Badge,
 	Button,
 	Card,
@@ -56,6 +63,8 @@ const planLabel: Record<string, string> = {
 	enterprise: "Корпоративный",
 };
 
+type ApplicationSortKey = "company" | "contact" | "plan" | "payment" | "status";
+
 export function PlatformCompanyApplications() {
 	const { profile, profileLoading, profileError } = useAuth();
 	const [applications, setApplications] = useState<CompanyApplication[]>([]);
@@ -66,6 +75,9 @@ export function PlatformCompanyApplications() {
 	const [forbidden, setForbidden] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [submittingId, setSubmittingId] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [sortKey, setSortKey] = useState<ApplicationSortKey | null>(null);
+	const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
 	const loadApplications = useCallback(async () => {
 		setLoading(true);
@@ -117,6 +129,62 @@ export function PlatformCompanyApplications() {
 		return applications.find((application) => application.id === submittingId)
 			?.company_name;
 	}, [applications, submittingId]);
+
+	const visibleApplications = useMemo(() => {
+		const searched = filterBySearch(applications, searchQuery, (a) => {
+			const fullName = [
+				a.contact_last_name,
+				a.contact_first_name,
+				a.contact_patronymic,
+			]
+				.filter(Boolean)
+				.join(" ");
+			return [
+				a.company_name,
+				a.inn,
+				fullName,
+				a.contact_email,
+				a.contact_phone,
+				planLabel[a.selected_plan] ?? a.selected_plan,
+				a.payment_method,
+				applicationStatusLabel[a.status] ?? a.status,
+				reviewComments[a.id] ?? "",
+			].join(" ");
+		});
+		return sortByColumn(searched, sortKey, sortDir, (a, key) => {
+			const fullName = [
+				a.contact_last_name,
+				a.contact_first_name,
+				a.contact_patronymic,
+			]
+				.filter(Boolean)
+				.join(" ");
+			switch (key) {
+				case "company":
+					return `${a.company_name} ${a.inn}`;
+				case "contact":
+					return `${fullName} ${a.contact_email} ${a.contact_phone}`;
+				case "plan":
+					return planLabel[a.selected_plan] ?? a.selected_plan;
+				case "payment":
+					return a.payment_method;
+				case "status":
+					return applicationStatusLabel[a.status] ?? a.status;
+				default:
+					return "";
+			}
+		});
+	}, [applications, searchQuery, sortKey, sortDir, reviewComments]);
+
+	function handleSort(columnKey: string) {
+		const next = toggleSortColumn(
+			sortKey,
+			sortDir,
+			columnKey as ApplicationSortKey,
+		);
+		setSortKey(next.sortKey);
+		setSortDir(next.sortDir);
+	}
 
 	const submitDecision = async (
 		applicationId: string,
@@ -221,102 +289,145 @@ export function PlatformCompanyApplications() {
 							Нет ожидающих заявок от компаний.
 						</p>
 					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Компания</TableHead>
-									<TableHead>Контакт</TableHead>
-									<TableHead>Тариф</TableHead>
-									<TableHead>Оплата</TableHead>
-									<TableHead>Статус</TableHead>
-									<TableHead>Комментарий</TableHead>
-									<TableHead className="text-right">Действия</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{applications.map((application) => {
-									const fullName = [
-										application.contact_last_name,
-										application.contact_first_name,
-										application.contact_patronymic,
-									]
-										.filter(Boolean)
-										.join(" ");
-									const isSubmitting = submittingId === application.id;
+						<>
+							<Input
+								placeholder="Поиск по таблице…"
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								className="mb-4 max-w-sm"
+							/>
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<SortableTableHead
+											label="Компания"
+											columnKey="company"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Контакт"
+											columnKey="contact"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Тариф"
+											columnKey="plan"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Оплата"
+											columnKey="payment"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Статус"
+											columnKey="status"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<TableHead>Комментарий</TableHead>
+										<TableHead className="text-right">Действия</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{visibleApplications.map((application) => {
+										const fullName = [
+											application.contact_last_name,
+											application.contact_first_name,
+											application.contact_patronymic,
+										]
+											.filter(Boolean)
+											.join(" ");
+										const isSubmitting = submittingId === application.id;
 
-									return (
-										<TableRow key={application.id}>
-											<TableCell className="align-top">
-												<div className="font-medium">
-													{application.company_name}
-												</div>
-												<div className="text-sm text-muted-foreground">
-													ИНН: {application.inn}
-												</div>
-											</TableCell>
-											<TableCell className="align-top">
-												<div>{fullName || "-"}</div>
-												<div className="text-sm text-muted-foreground">
-													{application.contact_email}
-												</div>
-												<div className="text-sm text-muted-foreground">
-													{application.contact_phone}
-												</div>
-											</TableCell>
-											<TableCell className="align-top">
-												{planLabel[application.selected_plan] ??
-													application.selected_plan}
-											</TableCell>
-											<TableCell className="align-top">
-												{application.payment_method}
-											</TableCell>
-											<TableCell className="align-top">
-												<Badge variant="outline">
-													{applicationStatusLabel[application.status] ??
-														application.status}
-												</Badge>
-											</TableCell>
-											<TableCell className="align-top">
-												<Input
-													value={reviewComments[application.id] ?? ""}
-													onChange={(event) =>
-														setReviewComments((current) => ({
-															...current,
-															[application.id]: event.target.value,
-														}))
-													}
-													placeholder="Необязательный комментарий"
-													disabled={isSubmitting}
-												/>
-											</TableCell>
-											<TableCell className="align-top text-right">
-												<div className="flex justify-end gap-2">
-													<Button
-														size="sm"
-														onClick={() =>
-															void submitDecision(application.id, "approve")
+										return (
+											<TableRow key={application.id}>
+												<TableCell className="align-top">
+													<div className="font-medium">
+														{application.company_name}
+													</div>
+													<div className="text-sm text-muted-foreground">
+														ИНН: {application.inn}
+													</div>
+												</TableCell>
+												<TableCell className="align-top">
+													<div>{fullName || "-"}</div>
+													<div className="text-sm text-muted-foreground">
+														{application.contact_email}
+													</div>
+													<div className="text-sm text-muted-foreground">
+														{application.contact_phone}
+													</div>
+												</TableCell>
+												<TableCell className="align-top">
+													{planLabel[application.selected_plan] ??
+														application.selected_plan}
+												</TableCell>
+												<TableCell className="align-top">
+													{application.payment_method}
+												</TableCell>
+												<TableCell className="align-top">
+													<Badge variant="outline">
+														{applicationStatusLabel[application.status] ??
+															application.status}
+													</Badge>
+												</TableCell>
+												<TableCell className="align-top">
+													<Input
+														value={reviewComments[application.id] ?? ""}
+														onChange={(event) =>
+															setReviewComments((current) => ({
+																...current,
+																[application.id]: event.target.value,
+															}))
 														}
+														placeholder="Необязательный комментарий"
 														disabled={isSubmitting}
-													>
-														Одобрить
-													</Button>
-													<Button
-														size="sm"
-														variant="destructive"
-														onClick={() =>
-															void submitDecision(application.id, "reject")
-														}
-														disabled={isSubmitting}
-													>
-														Отклонить
-													</Button>
-												</div>
-											</TableCell>
-										</TableRow>
-									);
-								})}
-							</TableBody>
-						</Table>
+													/>
+												</TableCell>
+												<TableCell className="align-top text-right">
+													<div className="flex justify-end gap-2">
+														<Button
+															size="sm"
+															onClick={() =>
+																void submitDecision(application.id, "approve")
+															}
+															disabled={isSubmitting}
+														>
+															Одобрить
+														</Button>
+														<Button
+															size="sm"
+															variant="destructive"
+															onClick={() =>
+																void submitDecision(application.id, "reject")
+															}
+															disabled={isSubmitting}
+														>
+															Отклонить
+														</Button>
+													</div>
+												</TableCell>
+											</TableRow>
+										);
+									})}
+								</TableBody>
+							</Table>
+							{visibleApplications.length === 0 ? (
+								<p className="py-4 text-center text-muted-foreground">
+									Ничего не найдено.
+								</p>
+							) : null}
+						</>
 					)}
 
 					{busyLabel ? (

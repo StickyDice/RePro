@@ -29,6 +29,7 @@ export {
 	TableCell,
 	TableCaption,
 } from "@/components/ui/table";
+export { SortableTableHead } from "./sortable-table-head";
 export { Badge, badgeVariants } from "@/components/ui/badge";
 export { Calendar } from "@/components/ui/calendar";
 export {

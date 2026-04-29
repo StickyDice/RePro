@@ -26,14 +26,22 @@ import {
 	Table,
 	TableBody,
 	TableCell,
-	TableHead,
 	TableHeader,
 	TableRow,
 } from "@shared/ui";
+import {
+	filterBySearch,
+	type SortDirection,
+	sortByColumn,
+	toggleSortColumn,
+} from "@shared/lib/client-table";
+import { SortableTableHead } from "@shared/ui/sortable-table-head";
 import { Field, Form, Formik } from "formik";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+
+type RoleSortKey = "name" | "code" | "priority" | "system";
 
 interface Role {
 	id: string;
@@ -58,6 +66,9 @@ export default function AdminRolesPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [sortKey, setSortKey] = useState<RoleSortKey | null>(null);
+	const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
 	const loadRoles = useCallback(async () => {
 		const companyId = getStoredCompanyId();
@@ -83,6 +94,37 @@ export default function AdminRolesPage() {
 	useEffect(() => {
 		void loadRoles();
 	}, [loadRoles]);
+
+	const visibleRoles = useMemo(() => {
+		const searched = filterBySearch(roles, searchQuery, (r) =>
+			[
+				formatRoleLabel(r),
+				r.code,
+				String(r.priority),
+				r.is_system ? "Да" : "Нет",
+			].join(" "),
+		);
+		return sortByColumn(searched, sortKey, sortDir, (r, key) => {
+			switch (key) {
+				case "name":
+					return formatRoleLabel(r);
+				case "code":
+					return r.code;
+				case "priority":
+					return r.priority;
+				case "system":
+					return r.is_system ? 1 : 0;
+				default:
+					return "";
+			}
+		});
+	}, [roles, searchQuery, sortKey, sortDir]);
+
+	function handleSort(columnKey: string) {
+		const next = toggleSortColumn(sortKey, sortDir, columnKey as RoleSortKey);
+		setSortKey(next.sortKey);
+		setSortDir(next.sortDir);
+	}
 
 	async function handleCreateRole(values: CreateRoleFormValues) {
 		const companyId = getStoredCompanyId();
@@ -210,32 +252,69 @@ export default function AdminRolesPage() {
 					) : error ? (
 						<p className="text-destructive">{error}</p>
 					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Название</TableHead>
-									<TableHead>Код</TableHead>
-									<TableHead>Приоритет</TableHead>
-									<TableHead>Системная</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{roles.map((r) => (
-									<TableRow key={r.id}>
-										<TableCell>{formatRoleLabel(r)}</TableCell>
-										<TableCell>{r.code}</TableCell>
-										<TableCell>{r.priority}</TableCell>
-										<TableCell>
-											{r.is_system ? (
-												<Badge variant="secondary">Да</Badge>
-											) : (
-												<span className="text-muted-foreground">Нет</span>
-											)}
-										</TableCell>
+						<>
+							<Input
+								placeholder="Поиск по таблице…"
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								className="mb-4 max-w-sm"
+							/>
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<SortableTableHead
+											label="Название"
+											columnKey="name"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Код"
+											columnKey="code"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Приоритет"
+											columnKey="priority"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
+										<SortableTableHead
+											label="Системная"
+											columnKey="system"
+											activeKey={sortKey}
+											direction={sortDir}
+											onSort={handleSort}
+										/>
 									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+								</TableHeader>
+								<TableBody>
+									{visibleRoles.map((r) => (
+										<TableRow key={r.id}>
+											<TableCell>{formatRoleLabel(r)}</TableCell>
+											<TableCell>{r.code}</TableCell>
+											<TableCell>{r.priority}</TableCell>
+											<TableCell>
+												{r.is_system ? (
+													<Badge variant="secondary">Да</Badge>
+												) : (
+													<span className="text-muted-foreground">Нет</span>
+												)}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+							{roles.length > 0 && visibleRoles.length === 0 ? (
+								<p className="py-4 text-center text-muted-foreground">
+									Ничего не найдено.
+								</p>
+							) : null}
+						</>
 					)}
 				</CardContent>
 			</Card>

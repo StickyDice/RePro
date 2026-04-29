@@ -7,12 +7,20 @@ import {
 	NO_COMPANY_SELECTED_MESSAGE,
 } from "@shared/lib/selected-company";
 import {
+	filterBySearch,
+	type SortDirection,
+	sortByColumn,
+	toggleSortColumn,
+} from "@shared/lib/client-table";
+import { SortableTableHead } from "@shared/ui/sortable-table-head";
+import {
 	Badge,
 	Button,
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
+	Input,
 	Skeleton,
 	Table,
 	TableBody,
@@ -23,7 +31,7 @@ import {
 } from "@shared/ui";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const statusVariant: Record<
@@ -45,10 +53,20 @@ const statusLabel: Record<RentalRequest["status"], string> = {
 	completed: "Завершено",
 };
 
+type SupportRentalSortKey =
+	| "resource"
+	| "applicant"
+	| "start"
+	| "end"
+	| "status";
+
 export function SupportRentalQueue() {
 	const [rentals, setRentals] = useState<RentalRequest[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [sortKey, setSortKey] = useState<SupportRentalSortKey | null>(null);
+	const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
 	const fetchRentals = () => {
 		const companyId = getStoredCompanyId();
@@ -76,6 +94,48 @@ export function SupportRentalQueue() {
 	useEffect(() => {
 		fetchRentals();
 	}, []);
+
+	const visibleRentals = useMemo(() => {
+		const searched = filterBySearch(rentals, searchQuery, (r) =>
+			[
+				r.resource?.name ?? r.resource_id,
+				r.user?.email ?? r.user_id,
+				format(new Date(r.requested_start_at), "MMM d, yyyy", {
+					locale: ru,
+				}),
+				format(new Date(r.requested_end_at), "MMM d, yyyy", {
+					locale: ru,
+				}),
+				statusLabel[r.status],
+			].join(" "),
+		);
+		return sortByColumn(searched, sortKey, sortDir, (r, key) => {
+			switch (key) {
+				case "resource":
+					return r.resource?.name ?? r.resource_id;
+				case "applicant":
+					return r.user?.email ?? r.user_id;
+				case "start":
+					return new Date(r.requested_start_at).getTime();
+				case "end":
+					return new Date(r.requested_end_at).getTime();
+				case "status":
+					return statusLabel[r.status];
+				default:
+					return "";
+			}
+		});
+	}, [rentals, searchQuery, sortKey, sortDir]);
+
+	function handleSort(columnKey: string) {
+		const next = toggleSortColumn(
+			sortKey,
+			sortDir,
+			columnKey as SupportRentalSortKey,
+		);
+		setSortKey(next.sortKey);
+		setSortDir(next.sortDir);
+	}
 
 	const handleApprove = async (rentalId: string) => {
 		const companyId = getStoredCompanyId();
@@ -145,19 +205,55 @@ export function SupportRentalQueue() {
 				<CardTitle>Поддержка: ожидающие заявки на бронирование</CardTitle>
 			</CardHeader>
 			<CardContent>
+				<Input
+					placeholder="Поиск по таблице…"
+					value={searchQuery}
+					onChange={(e) => setSearchQuery(e.target.value)}
+					className="mb-4 max-w-sm"
+				/>
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead>Ресурс</TableHead>
-							<TableHead>Заявитель</TableHead>
-							<TableHead>Начало</TableHead>
-							<TableHead>Окончание</TableHead>
-							<TableHead>Статус</TableHead>
+							<SortableTableHead
+								label="Ресурс"
+								columnKey="resource"
+								activeKey={sortKey}
+								direction={sortDir}
+								onSort={handleSort}
+							/>
+							<SortableTableHead
+								label="Заявитель"
+								columnKey="applicant"
+								activeKey={sortKey}
+								direction={sortDir}
+								onSort={handleSort}
+							/>
+							<SortableTableHead
+								label="Начало"
+								columnKey="start"
+								activeKey={sortKey}
+								direction={sortDir}
+								onSort={handleSort}
+							/>
+							<SortableTableHead
+								label="Окончание"
+								columnKey="end"
+								activeKey={sortKey}
+								direction={sortDir}
+								onSort={handleSort}
+							/>
+							<SortableTableHead
+								label="Статус"
+								columnKey="status"
+								activeKey={sortKey}
+								direction={sortDir}
+								onSort={handleSort}
+							/>
 							<TableHead className="text-right">Действия</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{rentals.map((r) => (
+						{visibleRentals.map((r) => (
 							<TableRow key={r.id}>
 								<TableCell className="font-medium">
 									{r.resource?.name ?? r.resource_id}
@@ -202,6 +298,11 @@ export function SupportRentalQueue() {
 						))}
 					</TableBody>
 				</Table>
+				{rentals.length > 0 && visibleRentals.length === 0 ? (
+					<p className="py-4 text-center text-muted-foreground">
+						Ничего не найдено.
+					</p>
+				) : null}
 				{rentals.length === 0 && (
 					<p className="py-4 text-center text-muted-foreground">
 						Нет ожидающих заявок на бронирование.
