@@ -18,6 +18,7 @@ import {
 	Shield,
 	Users,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
@@ -144,9 +145,18 @@ export function AppSidebar() {
 		<aside className="flex h-screen w-[280px] shrink-0 flex-col border-r border-border bg-white px-3 py-6">
 			<Link
 				href="/dashboard"
-				className="mb-8 w-fit px-3 text-xl font-bold tracking-tight text-foreground"
+				className="flex max-w-full items-center px-3 w-16 h-16"
+				aria-label={APP_NAME}
 			>
-				{APP_NAME}
+				<Image
+					src="/repro-logo.png"
+					alt=""
+					width={430}
+					height={417}
+					className="h-[100px] w-auto max-w-full object-contain object-left"
+					sizes="(max-width: 280px) 100vw, 200px"
+					priority
+				/>
 			</Link>
 
 			<nav className="flex flex-1 flex-col gap-1 overflow-y-auto text-[14px] leading-snug">
@@ -178,7 +188,7 @@ export function AppSidebar() {
 									className={className}
 								>
 									<Icon className={iconClass} aria-hidden />
-									<span className="min-w-0 break-words">{item.label}</span>
+									<span className="min-w-0 wrap-break-word">{item.label}</span>
 								</a>
 							);
 						}
@@ -186,7 +196,7 @@ export function AppSidebar() {
 						return (
 							<Link key={item.href} href={item.href} className={className}>
 								<Icon className={iconClass} aria-hidden />
-								<span className="min-w-0 break-words">{item.label}</span>
+								<span className="min-w-0 wrap-break-word">{item.label}</span>
 							</Link>
 						);
 					})

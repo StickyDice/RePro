@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
 	title: "RePro",
 	description: "Платформа бронирования ресурсов",
+	icons: {
+		icon: [{ url: "/repro-logo.png", type: "image/png" }],
+		apple: [{ url: "/repro-logo.png", sizes: "180x180", type: "image/png" }],
+	},
 };
 
 export default function RootLayout({
