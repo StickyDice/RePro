@@ -1,150 +1,144 @@
-# RePro — Resource Management SaaS Platform
+# RePro — SaaS для управления ресурсами компании
 
-Multitenant SaaS platform for companies to manage internal resources and rentals. Built according to [docs/plan/detailed-development-plan.md](docs/plan/detailed-development-plan.md).
+**RePro** — многотенантное B2B-приложение: компании ведут каталог общих активов (комнаты, техника, транспорт и т.п.), задают правила доступа по ролям и обрабатывают **заявки на бронирование** через поддержку.
 
-## Stack
+Детальный продуктовый план: [docs/plan/detailed-development-plan.md](docs/plan/detailed-development-plan.md).
 
-- **Frontend**: Next.js 16, shadcn/ui, Tailwind CSS, Formik, Zod, FSD architecture
-- **Backend**: Nest.js, Prisma, PostgreSQL
-- **Auth & DB admin**: Supabase Auth; data in PostgreSQL (same database as Prisma). [Supabase Studio](https://supabase.com/docs/guides/local-development/overview) is used for SQL, table browser, and auth users when you run the bundled self-hosted stack.
+## О проекте
 
-## Quick start
+### Задача
 
-### Prerequisites
+Свести двойные брони и «устные» правила к одному процессу: что доступно кому, кто утверждает заявки и как видна история.
 
-- Node.js 20+
-- pnpm
-- Either **Docker** (recommended for a one-command stack) or a **Supabase Cloud** project / **Supabase CLI** on the host
+### Роли
 
-### Option A — Docker Compose (app + self-hosted Supabase)
+| Роль | Что делает |
+|------|------------|
+| Платформенный администратор | Рассматривает публичные заявки на подключение компаний |
+| Админ / модератор / поддержка в компании | Пользователи, ресурсы, очередь заявок на аренду |
+| Сотрудник | Видит разрешённые ресурсы, подаёт заявки, смотрит статусы |
 
-Root `docker-compose.yml` **includes** the upstream Supabase Docker stack (`docker/supabase/compose.yaml`) plus RePro **backend** and **frontend**. You get Postgres, Kong, Auth, Studio, REST, and the rest of the default services.
+Вход через **Supabase Auth**. Данные изолированы по **активной компании** (`company_id`, заголовок `X-Company-Id` или `companyId` в пути API).
 
-1. **Environment**
+### Как обычно выглядит сценарий
 
-   ```bash
-   cp .env.example .env
-   ```
+1. Заявка на подключение компании → одобрение платформой.
+2. Пользователи входят, при нескольких компаниях выбирают активную.
+3. Модераторы настраивают **ресурсы** (минимальная роль, исключения для отдельных людей).
+4. Сотрудник создаёт **заявку на аренду**; поддержка **одобряет** или **отклоняет**; пользователю уходит уведомление (в коде — заглушка email).
+5. **Статистика** для модераторов: загрузка и спрос.
 
-   Edit `.env` at the **repository root**. It must define all variables expected by `docker/supabase/compose.yaml` (JWT secrets, `ANON_KEY`, `SERVICE_ROLE_KEY`, Logflare tokens, pooler settings, etc.). The example file uses **demo** JWT keys suitable only for local development.
+## Стек
 
-2. **Run**
+- **Фронтенд**: Next.js 16, shadcn/ui, Tailwind, Formik, Zod, FSD
+- **Бэкенд**: Nest.js, Prisma, PostgreSQL
+- **Auth / админка БД**: Supabase; прикладные таблицы в той же PostgreSQL, что и Prisma. При Docker-стеке удобен [Supabase Studio](https://supabase.com/docs/guides/local-development/overview)
 
-   ```bash
-   pnpm docker:up
-   ```
+## Запуск через Docker (рекомендуется)
 
-   This copies `.env.example` → `.env` when `.env` is missing or empty, then runs `docker compose up --build`. You can use plain `docker compose` instead **only after** `cp .env.example .env` (Compose substitutes `${VAR}` from `.env` for the whole stack; without it, `supabase-db` stays unhealthy).
+Корневой [`docker-compose.yml`](docker-compose.yml) подключает self-hosted **Supabase** ([`docker/supabase/compose.yaml`](docker/supabase/compose.yaml)) и сервисы **backend** и **frontend** RePro.
 
-   If you previously ran an older compose file with a standalone `postgres` service, free the old pooler port and drop orphan containers:
+### Нужно установить
 
-   ```bash
-   docker compose down --remove-orphans
-   pnpm docker:up
-   ```
+- Docker с **Compose v2** (`docker compose`)
+- Для команды `pnpm docker:up` — **Node.js 20+** и **pnpm**
 
-   If the DB container stays unhealthy after a failed first start (e.g. empty env left bad data), reset the local data directory and try again:
+### Команды
 
-   ```bash
-   docker compose down
-   rm -rf docker/supabase/volumes/db/data
-   pnpm docker:up
-   ```
+```bash
+cp .env.example .env
+# Отредактируйте .env: пароли, JWT, ANON_KEY, SERVICE_ROLE_KEY, порты и т.д.
+pnpm install
+pnpm docker:up
+```
 
-3. **URLs**
+Скрипт [`scripts/ensure-compose-env.sh`](scripts/ensure-compose-env.sh) при пустом или отсутствующем `.env` скопирует `.env.example`, затем запустит `docker compose up --build`.
 
-   | What | URL |
-   |------|-----|
-   | RePro app | http://localhost:3000 |
-   | RePro API | http://localhost:4000 |
-   | Supabase API (Kong) & Studio entry | `SUPABASE_PUBLIC_URL` (default http://localhost:54321) |
-   | Postgres from host (Supavisor) | `localhost:54322` (see `POSTGRES_HOST_PORT` in `.env`) |
+Без pnpm, если `.env` уже готов:
 
-   Open Studio in the browser at the same base URL as the Supabase API. Kong will prompt for **HTTP basic auth** using `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD` from `.env`. The dashboard also links to Studio (“Supabase Studio (database & auth)”).
+```bash
+docker compose up --build
+```
 
-4. **Data directory**
+При старте контейнера backend обычно выполняются миграции Prisma и сид (см. `CMD` в [`services/backend/Dockerfile`](services/backend/Dockerfile)).
 
-   Postgres files are stored under `docker/supabase/volumes/db/data` (ignored by git).
+### Куда открыть в браузере
 
-### Option B — Local development with pnpm (no Docker for the app)
+| Сервис | Адрес |
+|--------|--------|
+| Веб-приложение | http://localhost:3000 |
+| API | http://localhost:4000 |
+| Supabase (Kong) и Studio | `SUPABASE_PUBLIC_URL` из `.env`, чаще всего http://localhost:54321 |
+| Postgres с хоста (пулер) | `localhost:54322` (`POSTGRES_HOST_PORT`) |
 
-Use this when you run the API and Next dev server on the host and either use **Supabase Cloud** or **`pnpm dlx supabase start`** for Auth/Postgres.
+Для дашборда Kong — **HTTP Basic**: `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD` из `.env`.
 
-#### 1. Install dependencies
+Остановка: `docker compose down`. Данные Postgres лежат в `docker/supabase/volumes/db/data` (в git не попадают).
+
+### Если контейнеры не поднимаются
+
+- **Нет или пустой корневой `.env`** — БД Supabase может быть `unhealthy`. Заполните `.env`, перезапустите.
+- Старый compose с другим сервисом Postgres:  
+  `docker compose down --remove-orphans` → снова `pnpm docker:up`.
+- После испорченного первого запуска:  
+  `docker compose down`, удалить `docker/supabase/volumes/db/data`, снова `pnpm docker:up`.
+
+## Локальная разработка (API и Next на хосте)
+
+Postgres и Auth — через **Supabase Cloud** или `pnpm dlx supabase start`.
 
 ```bash
 pnpm install
 ```
 
-#### 2. Backend
+**Backend** (`services/backend`): `cp .env.example .env`, задать `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_*`, `PLATFORM_ADMIN_EMAILS`; затем из каталога backend:
 
 ```bash
-cd services/backend
-cp .env.example .env
+pnpm prisma:generate && pnpm prisma:migrate && pnpm prisma:seed
 ```
 
-Edit `services/backend/.env`: set `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `PLATFORM_ADMIN_EMAILS`. See comments in `.env.example` for Cloud vs local CLI vs Docker-on-host.
+**Frontend** (`services/frontend`): `cp .env.local.example .env.local` — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_API_URL`.
+
+Два терминала из корня монорепо:
 
 ```bash
-pnpm prisma:generate
-pnpm prisma:migrate
-pnpm prisma:seed
+pnpm backend start:dev    # порт 4000
+pnpm frontend dev         # порт 3000
 ```
 
-#### 3. Frontend
-
-```bash
-cd services/frontend
-cp .env.local.example .env.local
-```
-
-Edit `.env.local` with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_API_URL`.
-
-#### 4. Run
-
-```bash
-# Terminal 1 — API (port 4000)
-pnpm backend start:dev
-
-# Terminal 2 — Frontend (port 3000)
-pnpm frontend dev
-```
-
-## Project structure
+## Структура репозитория
 
 ```
 RePro/
-├── docker/
-│   └── supabase/          # Vendored Supabase Docker assets (compose fragment + volumes)
+├── docker/supabase/     # Compose-фрагмент и тома Supabase
 ├── services/
-│   ├── backend/           # Nest.js API
-│   │   ├── prisma/        # Schema, migrations, seed
-│   │   └── src/           # Modules: auth, companies, resources, rentals, etc.
-│   └── frontend/          # Next.js app
-│       ├── app/           # Routes & pages
-│       └── src/           # FSD: shared, entities, features, widgets
+│   ├── backend/        # Nest, Prisma
+│   └── frontend/       # Next.js (app/, src/)
 └── docs/
 ```
 
-## Main features
+## Возможности MVP
 
-- **Company onboarding**: Public application form; platform admin approves/rejects
-- **Auth**: Supabase login, password reset, `pending_verification` after reset
-- **Storage**: Prisma models live in PostgreSQL alongside Supabase’s schemas; inspect them in Studio when using the Docker stack
-- **Multi-company**: User selects active company; tenant isolation by `company_id`
-- **Roles**: employee, support, moderator, company_admin (per company)
-- **Resources**: CRUD, min role, user exceptions (allow/deny)
-- **Rentals**: Request → support approve/reject → Google Calendar integration
-- **Statistics**: Overview, resource utilization, peak demand (moderator+)
+- Заявка компании на платформу и модерация суперпользователем
+- Авторизация Supabase, сброс пароля, статус проверки после сброса
+- Несколько компаний у одного пользователя, изоляция по `company_id`
+- Роли: employee, support, moderator, company_admin
+- Ресурсы с минимальной ролью и исключениями allow/deny
+- Аренда: заявка → approve/reject/cancel со стороны поддержки при необходимости
+- Статистика по ресурсам и арендам (модератор+)
 
-## API overview
+## Краткий обзор API
 
-- `POST /company-applications` — submit application (public)
-- `GET/PATCH /platform/company-applications` — platform admin review
+Публично: `POST /company-applications`.
+
+Платформа: `GET` / `PATCH /platform/company-applications`.
+
+Прочее (с токеном и контекстом компании):
+
 - `GET /auth/me`, `POST /auth/select-company`, `POST /auth/password-reset/request`
 - `GET /companies/my`, `GET /companies/:id/members`, `GET /companies/:id/roles`
-- `GET/POST /companies/:id/resources`, `GET /companies/:id/resources/:id/availability`
-- `GET/POST /companies/:id/rentals`, `PATCH .../approve`, `.../reject`, `.../cancel`
-- `GET /companies/:id/statistics/overview`, `.../resources`, `.../rentals`
+- `GET|POST /companies/:id/resources`, `GET .../resources/:id/availability`
+- `GET|POST /companies/:id/rentals`, `PATCH .../approve|reject`, `PATCH .../cancel`
+- `GET /companies/:id/statistics/overview`, `/statistics/resources`, `/statistics/rentals`
 
-All tenant endpoints require `Authorization: Bearer <token>` and `X-Company-Id` (or company in URL).
+Для тенантных маршрутов: `Authorization: Bearer <jwt>` и `X-Company-Id` (либо `:id` компании уже в URL).
