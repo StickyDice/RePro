@@ -59,7 +59,8 @@ export function AppSidebar() {
 	const pathname = usePathname() ?? "";
 	const { profile, profileLoading } = useAuth();
 
-	const supabaseStudioUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+	const supabaseStudioUrl =
+		process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://localhost:54321";
 
 	const navDefinitions: NavDefinition[] = useMemo(
 		() => [
@@ -69,6 +70,13 @@ export function AppSidebar() {
 				href: "/profile",
 				icon: Settings,
 				visible: () => true,
+			},
+			{
+				kind: "internal",
+				label: "Ресурсы",
+				href: "/resources",
+				icon: Package,
+				visible: (p: User) => getActiveMembership(p) !== null,
 			},
 			{
 				kind: "internal",
@@ -119,17 +127,13 @@ export function AppSidebar() {
 				icon: CalendarDays,
 				visible: (p: User) => getActiveMembership(p) !== null,
 			},
-			...(supabaseStudioUrl
-				? [
-						{
-							kind: "external" as const,
-							label: "Supabase Studio (база данных и авторизация)",
-							href: supabaseStudioUrl,
-							icon: Database,
-							visible: (p: User) => p.isPlatformAdmin === true,
-						},
-					]
-				: []),
+			{
+				kind: "external",
+				label: "Supabase Studio (база данных и авторизация)",
+				href: supabaseStudioUrl,
+				icon: Database,
+				visible: (p: User) => p.isPlatformAdmin === true,
+			},
 		],
 		[supabaseStudioUrl],
 	);

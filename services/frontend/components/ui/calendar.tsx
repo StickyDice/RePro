@@ -1,10 +1,10 @@
 "use client";
 
-import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import * as React from "react";
 import { DayPicker } from "react-day-picker";
-import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
@@ -17,30 +17,30 @@ function Calendar({
 	return (
 		<DayPicker
 			showOutsideDays={showOutsideDays}
-			className={cn("p-3", className)}
+			className={cn("relative p-3", className)}
 			classNames={{
-				months: "flex flex-col sm:flex-row gap-2",
+				months: "flex flex-col gap-4 sm:flex-row",
 				month: "flex flex-col gap-4",
-				month_caption: "flex justify-center pt-1 relative items-center w-full",
+				month_caption: "flex h-9 w-full items-center justify-center",
 				caption_label: "text-sm font-medium",
-				nav: "flex items-center gap-1",
+				nav: "absolute inset-x-3 top-3 flex items-center justify-between",
 				button_previous: cn(
 					buttonVariants({ variant: "outline" }),
-					"absolute left-1 size-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+					"size-8 bg-background p-0 opacity-70 hover:opacity-100",
 				),
 				button_next: cn(
 					buttonVariants({ variant: "outline" }),
-					"absolute right-1 size-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+					"size-8 bg-background p-0 opacity-70 hover:opacity-100",
 				),
-				month_grid: "w-full border-collapse space-y-1",
-				weekdays: "flex",
+				month_grid: "mx-auto w-auto border-collapse",
+				weekdays: "grid grid-cols-7 gap-1",
 				weekday:
-					"text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
-				week: "flex w-full mt-2",
-				day: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected].day-range-end)]:rounded-r-md",
+					"flex h-9 w-10 items-center justify-center rounded-md text-[0.8rem] font-normal text-muted-foreground",
+				week: "mt-1 grid grid-cols-7 gap-1",
+				day: "relative flex h-10 w-10 items-center justify-center p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected].day-range-end)]:rounded-r-md",
 				day_button: cn(
 					buttonVariants({ variant: "ghost" }),
-					"size-9 p-0 font-normal aria-selected:opacity-100",
+					"size-10 p-0 font-normal aria-selected:opacity-100",
 				),
 				range_start: "day-range-start rounded-l-md",
 				range_end: "day-range-end rounded-r-md",

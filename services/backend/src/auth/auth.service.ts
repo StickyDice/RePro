@@ -374,21 +374,14 @@ export class AuthService {
 
 	/**
 	 * Full access to /platform/* and `isPlatformAdmin` in /auth/me.
-	 * Emails in PLATFORM_ADMIN_EMAILS alone are not enough: a company admin whose
-	 * contact email is also in that list (misconfiguration) must not get global
-	 * platform access — they have active membership in their company.
+	 * Platform admins are configured explicitly through PLATFORM_ADMIN_EMAILS.
 	 */
 	async isPlatformContextAdmin(
 		userId: string,
 		email: string | null,
 	): Promise<boolean> {
-		if (!this.isPlatformAdminEmail(email)) {
-			return false;
-		}
-		const activeMemberships = await this.prisma.membership.count({
-			where: { user_id: userId, status: MembershipStatus.active },
-		});
-		return activeMemberships === 0;
+		void userId;
+		return this.isPlatformAdminEmail(email);
 	}
 
 	private isPlatformAdminEmail(email: string | null): boolean {

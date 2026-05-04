@@ -1,4 +1,9 @@
 import { PrismaClient } from "@prisma/client";
+import {
+	createClient,
+	type SupabaseClient,
+	type User as SupabaseUser,
+} from "@supabase/supabase-js";
 
 const prisma = new PrismaClient();
 
@@ -161,12 +166,146 @@ const DEMO_ROLES: RoleSeed[] = [
 	...DEMO_EXTRA_ROLES.map((role) => ({ ...role, isSystem: false })),
 ];
 
+let supabaseAdmin: SupabaseClient | null | undefined;
+let authUsersByEmail: Map<string, SupabaseUser> | null = null;
+
 function userName(index: number) {
 	return {
 		firstName: FIRST_NAMES[index % FIRST_NAMES.length],
 		lastName:
 			LAST_NAMES[Math.floor(index / FIRST_NAMES.length) % LAST_NAMES.length],
 	};
+}
+
+function normalizeEmail(email: string) {
+	return email.trim().toLowerCase();
+}
+
+function getSupabaseAdmin() {
+	if (supabaseAdmin !== undefined) {
+		return supabaseAdmin;
+	}
+
+	const supabaseUrl = process.env.SUPABASE_URL;
+	const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+	if (!supabaseUrl || !serviceRoleKey) {
+		console.warn(
+			"SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing; skipping Supabase Auth demo users.",
+		);
+		supabaseAdmin = null;
+		return supabaseAdmin;
+	}
+
+	supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+		auth: {
+			autoRefreshToken: false,
+			persistSession: false,
+		},
+	});
+	return supabaseAdmin;
+}
+
+async function loadAuthUsersByEmail(client: SupabaseClient) {
+	if (authUsersByEmail) {
+		return authUsersByEmail;
+	}
+
+	const users = new Map<string, SupabaseUser>();
+	let page = 1;
+	const perPage = 1000;
+
+	while (true) {
+		const { data, error } = await client.auth.admin.listUsers({
+			page,
+			perPage,
+		});
+		if (error) {
+			throw new Error(`Failed to list Supabase Auth users: ${error.message}`);
+		}
+
+		for (const user of data.users) {
+			if (user.email) {
+				users.set(normalizeEmail(user.email), user);
+			}
+		}
+
+		if (data.users.length < perPage) {
+			break;
+		}
+		page += 1;
+	}
+
+	authUsersByEmail = users;
+	return authUsersByEmail;
+}
+
+async function ensureAuthUser(params: {
+	email: string;
+	firstName: string;
+	lastName: string;
+	publicUserId: string;
+	currentSupabaseAuthId: string | null;
+}) {
+	const client = getSupabaseAdmin();
+	if (!client) {
+		return;
+	}
+
+	const password = params.email;
+	const usersByEmail = await loadAuthUsersByEmail(client);
+	const normalizedEmail = normalizeEmail(params.email);
+	const existing =
+		params.currentSupabaseAuthId !== null
+			? ({ id: params.currentSupabaseAuthId } as SupabaseUser)
+			: usersByEmail.get(normalizedEmail);
+
+	if (existing) {
+		const { error } = await client.auth.admin.updateUserById(existing.id, {
+			password,
+			email_confirm: true,
+			user_metadata: {
+				first_name: params.firstName,
+				last_name: params.lastName,
+			},
+		});
+		if (error) {
+			throw new Error(
+				`Failed to update Supabase Auth user ${params.email}: ${error.message}`,
+			);
+		}
+
+		await prisma.user.update({
+			where: { id: params.publicUserId },
+			data: { supabase_auth_id: existing.id },
+		});
+		return;
+	}
+
+	const { data, error } = await client.auth.admin.createUser({
+		email: params.email,
+		password,
+		email_confirm: true,
+		user_metadata: {
+			first_name: params.firstName,
+			last_name: params.lastName,
+		},
+	});
+
+	if (error || !data.user) {
+		throw new Error(
+			`Failed to create Supabase Auth user ${params.email}: ${
+				error?.message ?? "empty response"
+			}`,
+		);
+	}
+
+	usersByEmail.set(normalizedEmail, data.user);
+
+	await prisma.user.update({
+		where: { id: params.publicUserId },
+		data: { supabase_auth_id: data.user.id },
+	});
 }
 
 async function seedPlans() {
@@ -278,7 +417,7 @@ async function upsertUser(email: string, index: number) {
 	const name = userName(index);
 	const phoneSuffix = String(index + 1).padStart(6, "0");
 
-	return prisma.user.upsert({
+	const user = await prisma.user.upsert({
 		where: { email },
 		create: {
 			email,
@@ -294,6 +433,16 @@ async function upsertUser(email: string, index: number) {
 			status: "active",
 		},
 	});
+
+	await ensureAuthUser({
+		email,
+		firstName: name.firstName,
+		lastName: name.lastName,
+		publicUserId: user.id,
+		currentSupabaseAuthId: user.supabase_auth_id,
+	});
+
+	return user;
 }
 
 function roleCodeForMember(index: number) {
@@ -425,6 +574,9 @@ async function seedDemoData(planIds: Map<string, string>) {
 	);
 	console.log(
 		"Shared demo users: demo.shared.alpha.* belong to companies 1-3, demo.shared.beta.* belong to companies 4-6",
+	);
+	console.log(
+		"Seeded Supabase Auth demo users with passwords equal to their emails",
 	);
 }
 
