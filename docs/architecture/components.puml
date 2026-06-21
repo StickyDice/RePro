@@ -1,0 +1,15 @@
+' =============================================================================
+' Набор архитектурных диаграмм RePro (PlantUML)
+' =============================================================================
+'
+' 01-deployment-overview.puml  — общая архитектура развёртывания (Docker, сервисы)
+' 02-frontend.puml             — клиентская часть (Next.js)
+' 03-backend.puml              — серверная часть (NestJS)
+' 04-data-layer.puml           — слой данных (PostgreSQL / Prisma)
+' 05-request-flow.puml         — обработка tenant-запроса (sequence)
+'
+' Генерация PNG:
+'   cd docs/architecture
+'   plantuml 01-deployment-overview.puml 02-frontend.puml 03-backend.puml \
+'             04-data-layer.puml 05-request-flow.puml
+'

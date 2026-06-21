@@ -1,0 +1,1954 @@
+openapi: 3.1.0
+info:
+  title: RePro SaaS Platform API
+  description: |
+    REST API платформы RePro для управления и бронирования внутренних ресурсов компаний.
+
+    ## Аутентификация
+    Вход пользователя выполняется через Supabase Auth на клиенте. Backend проверяет JWT-токен
+    Supabase в заголовке `Authorization: Bearer <token>`.
+
+    ## Multi-tenancy
+    Для операций в контексте организации передаётся заголовок `X-Company-Id` с UUID компании.
+    Пользователь должен иметь активное членство (membership) в указанной компании.
+
+    ## Роли
+    Минимальный приоритет роли для защищённых маршрутов:
+    - employee: 10
+    - support: 20
+    - moderator: 30
+    - company_admin: 40
+  version: 1.0.0
+  contact:
+    name: RePro Platform
+
+servers:
+  - url: http://localhost:4000
+    description: Локальная среда разработки (Docker Compose)
+  - url: "{protocol}://{host}"
+    description: Произвольный хост
+    variables:
+      protocol:
+        enum: [http, https]
+        default: https
+      host:
+        default: api.example.com
+
+tags:
+  - name: System
+    description: Системные эндпоинты
+  - name: Auth
+    description: Профиль пользователя и контекст компании
+  - name: Companies
+    description: Организации и членство
+  - name: Members
+    description: Участники организации
+  - name: Roles
+    description: Роли организации
+  - name: Resources
+    description: Каталог ресурсов
+  - name: Rentals
+    description: Заявки на бронирование
+  - name: Statistics
+    description: Аналитика использования ресурсов
+  - name: CompanyApplications
+    description: Заявки на подключение организации
+  - name: PlatformAdmin
+    description: Администрирование платформы
+
+security:
+  - bearerAuth: []
+
+paths:
+  /:
+    get:
+      tags: [System]
+      summary: Приветственное сообщение API
+      security: []
+      responses:
+        "200":
+          description: Текстовый ответ
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /health:
+    get:
+      tags: [System]
+      summary: Проверка работоспособности
+      security: []
+      responses:
+        "200":
+          description: Сервис доступен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /auth/verify:
+    get:
+      tags: [Auth]
+      summary: Проверка токена и получение данных пользователя
+      responses:
+        "200":
+          description: Пользователь авторизован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Текущий пользователь с членствами в компаниях
+      responses:
+        "200":
+          description: Данные пользователя
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [Auth]
+      summary: Обновление профиля пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Профиль обновлён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/select-company:
+    post:
+      tags: [Auth]
+      summary: Выбор активной компании
+      description: |
+        Проверяет членство пользователя в компании. Клиент сохраняет `companyId`
+        и передаёт его в заголовке `X-Company-Id` для tenant-операций.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SelectCompanyRequest"
+      responses:
+        "200":
+          description: Компания выбрана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SelectCompanyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /auth/password-reset/request:
+    post:
+      tags: [Auth]
+      summary: Запрос сброса пароля
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetRequest"
+      responses:
+        "200":
+          description: Запрос принят
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkMessageResponse"
+
+  /auth/password-reset/confirm:
+    post:
+      tags: [Auth]
+      summary: Подтверждение сброса пароля
+      security: []
+      description: |
+        Вызывается клиентом после перехода по ссылке восстановления.
+        Требует Bearer-токен или `userId` в теле запроса.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetConfirmRequest"
+      responses:
+        "200":
+          description: Статус пользователя обновлён
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/OkMessageResponse"
+
+  /companies/my:
+    get:
+      tags: [Companies]
+      summary: Список компаний текущего пользователя
+      responses:
+        "200":
+          description: Компании с ролями
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyCompaniesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /companies/{companyId}:
+    get:
+      tags: [Companies]
+      summary: Детали компании
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Данные компании
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /companies/{companyId}/members:
+    get:
+      tags: [Members]
+      summary: Список участников компании
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Участники
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Members]
+      summary: Добавление участника
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMemberRequest"
+      responses:
+        "201":
+          description: Участник добавлен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /companies/{companyId}/members/{membershipId}:
+    patch:
+      tags: [Members]
+      summary: Изменение роли участника
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/MembershipId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberRoleRequest"
+      responses:
+        "200":
+          description: Роль обновлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{companyId}/members/{membershipId}/status:
+    patch:
+      tags: [Members]
+      summary: Изменение статуса участника
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/MembershipId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberStatusRequest"
+      responses:
+        "200":
+          description: Статус обновлён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Membership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{companyId}/roles:
+    get:
+      tags: [Roles]
+      summary: Список ролей компании
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Роли
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Roles]
+      summary: Создание роли
+      description: Требуется роль company_admin (priority >= 40)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleRequest"
+      responses:
+        "201":
+          description: Роль создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /companies/{companyId}/roles/{roleId}:
+    patch:
+      tags: [Roles]
+      summary: Обновление роли
+      description: Требуется роль company_admin (priority >= 40)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/RoleId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleRequest"
+      responses:
+        "200":
+          description: Роль обновлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Roles]
+      summary: Удаление роли
+      description: Требуется роль company_admin (priority >= 40)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/RoleId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Роль удалена
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{companyId}/resources:
+    get:
+      tags: [Resources]
+      summary: Список доступных ресурсов
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Ресурсы, доступные текущему пользователю
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourcesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Resources]
+      summary: Создание ресурса
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResourceRequest"
+      responses:
+        "201":
+          description: Ресурс создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /companies/{companyId}/resources/{resourceId}:
+    get:
+      tags: [Resources]
+      summary: Получение ресурса
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/ResourceId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Ресурс
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Resources]
+      summary: Обновление ресурса
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/ResourceId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateResourceRequest"
+      responses:
+        "200":
+          description: Ресурс обновлён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Resources]
+      summary: Удаление (деактивация) ресурса
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/ResourceId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Ресурс деактивирован
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{companyId}/resources/{resourceId}/availability:
+    get:
+      tags: [Resources]
+      summary: Доступность ресурса за период
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/ResourceId"
+        - $ref: "#/components/parameters/XCompanyId"
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Интервалы занятости и свободные слоты
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{companyId}/resources/{resourceId}/exceptions:
+    get:
+      tags: [Resources]
+      summary: Исключения доступа к ресурсу
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/ResourceId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Список исключений
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceExceptionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Resources]
+      summary: Создание исключения доступа
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/ResourceId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResourceExceptionRequest"
+      responses:
+        "201":
+          description: Исключение создано
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceUserException"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /companies/{companyId}/resources/{resourceId}/exceptions/{exceptionId}:
+    delete:
+      tags: [Resources]
+      summary: Удаление исключения доступа
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/ResourceId"
+        - $ref: "#/components/parameters/ExceptionId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Исключение удалено
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{companyId}/rentals/my:
+    get:
+      tags: [Rentals]
+      summary: Бронирования текущего пользователя
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Заявки пользователя
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /companies/{companyId}/rentals:
+    get:
+      tags: [Rentals]
+      summary: Список заявок компании
+      description: Требуется роль support (priority >= 20)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/RentalRequestStatus"
+      responses:
+        "200":
+          description: Заявки
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Rentals]
+      summary: Создание заявки на бронирование
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRentalRequest"
+      responses:
+        "201":
+          description: Заявка создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalRequest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Конфликт интервалов или ресурс недоступен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /companies/{companyId}/rentals/{rentalId}:
+    get:
+      tags: [Rentals]
+      summary: Получение заявки
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/RentalId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Заявка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{companyId}/rentals/{rentalId}/approve:
+    patch:
+      tags: [Rentals]
+      summary: Одобрение заявки
+      description: Требуется роль support (priority >= 20)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/RentalId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalDecisionRequest"
+      responses:
+        "200":
+          description: Заявка одобрена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Конфликт интервалов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /companies/{companyId}/rentals/{rentalId}/reject:
+    patch:
+      tags: [Rentals]
+      summary: Отклонение заявки
+      description: Требуется роль support (priority >= 20)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/RentalId"
+        - $ref: "#/components/parameters/XCompanyId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalDecisionRequest"
+      responses:
+        "200":
+          description: Заявка отклонена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{companyId}/rentals/{rentalId}/cancel:
+    patch:
+      tags: [Rentals]
+      summary: Отмена заявки
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/RentalId"
+        - $ref: "#/components/parameters/XCompanyId"
+      responses:
+        "200":
+          description: Заявка отменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{companyId}/statistics/overview:
+    get:
+      tags: [Statistics]
+      summary: Сводная статистика
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+        - $ref: "#/components/parameters/StartDate"
+        - $ref: "#/components/parameters/EndDate"
+      responses:
+        "200":
+          description: Сводные показатели
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatisticsOverviewResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /companies/{companyId}/statistics/resources:
+    get:
+      tags: [Statistics]
+      summary: Статистика по ресурсам
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+        - $ref: "#/components/parameters/StartDate"
+        - $ref: "#/components/parameters/EndDate"
+        - name: resourceId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Загрузка ресурсов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatisticsResourcesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /companies/{companyId}/statistics/rentals:
+    get:
+      tags: [Statistics]
+      summary: Статистика по заявкам
+      description: Требуется роль moderator (priority >= 30)
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/XCompanyId"
+        - $ref: "#/components/parameters/StartDate"
+        - $ref: "#/components/parameters/EndDate"
+      responses:
+        "200":
+          description: Распределение заявок
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatisticsRentalsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /company-applications:
+    post:
+      tags: [CompanyApplications]
+      summary: Подача заявки на подключение организации
+      security: []
+      description: |
+        Публичный эндпоинт. Если передан Bearer-токен, email контакта
+        может быть зафиксирован на email авторизованного пользователя.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompanyApplicationRequest"
+      responses:
+        "201":
+          description: Заявка создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateCompanyApplicationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Заявка уже существует
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /platform/company-applications:
+    get:
+      tags: [PlatformAdmin]
+      summary: Список ожидающих заявок
+      description: Доступно администраторам платформы (PLATFORM_ADMIN_EMAILS)
+      responses:
+        "200":
+          description: Заявки
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyApplicationsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /platform/company-applications/{id}/approve:
+    patch:
+      tags: [PlatformAdmin]
+      summary: Одобрение заявки на подключение
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewApplicationRequest"
+      responses:
+        "200":
+          description: Компания создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApproveApplicationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /platform/company-applications/{id}/reject:
+    patch:
+      tags: [PlatformAdmin]
+      summary: Отклонение заявки на подключение
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewApplicationRequest"
+      responses:
+        "200":
+          description: Заявка отклонена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyApplicationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT-токен Supabase Auth
+
+  parameters:
+    CompanyId:
+      name: companyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MembershipId:
+      name: membershipId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ResourceId:
+      name: resourceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ExceptionId:
+      name: exceptionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RentalId:
+      name: rentalId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    XCompanyId:
+      name: X-Company-Id
+      in: header
+      required: true
+      description: UUID активной организации (tenant-контекст)
+      schema:
+        type: string
+        format: uuid
+    StartDate:
+      name: startDate
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date
+    EndDate:
+      name: endDate
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date
+
+  responses:
+    BadRequest:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Требуется авторизация
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Недостаточно прав или нет доступа к компании
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        error:
+          type: string
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+    OkMessageResponse:
+      type: object
+      required: [ok, message]
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+
+    UserStatus:
+      type: string
+      enum: [active, pending_verification, disabled]
+
+    MembershipStatus:
+      type: string
+      enum: [active, invited, blocked]
+
+    RentalRequestStatus:
+      type: string
+      enum: [pending, approved, rejected, cancelled, completed]
+
+    ResourceExceptionRuleType:
+      type: string
+      enum: [allow, deny]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        supabase_auth_id:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone_number:
+          type: string
+          nullable: true
+        first_name:
+          type: string
+          nullable: true
+        last_name:
+          type: string
+          nullable: true
+        patronymic:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/UserStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        priority:
+          type: integer
+        description:
+          type: string
+          nullable: true
+        is_system:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Company:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        inn:
+          type: string
+        contact_email:
+          type: string
+          format: email
+        contact_phone:
+          type: string
+        contact_first_name:
+          type: string
+        contact_last_name:
+          type: string
+        contact_patronymic:
+          type: string
+          nullable: true
+        subscription_status:
+          type: string
+        selected_plan_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Membership:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        role_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/MembershipStatus"
+        is_default_company:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/User"
+        role:
+          $ref: "#/components/schemas/Role"
+        company:
+          $ref: "#/components/schemas/Company"
+
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        quantity_total:
+          type: integer
+        quantity_active:
+          type: integer
+        min_role_id:
+          type: string
+          format: uuid
+          nullable: true
+        is_active:
+          type: boolean
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        updated_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        min_role:
+          $ref: "#/components/schemas/Role"
+
+    ResourceUserException:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        resource_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        rule_type:
+          $ref: "#/components/schemas/ResourceExceptionRuleType"
+        reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    RentalAllocation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        resource_id:
+          type: string
+          format: uuid
+        rental_request_id:
+          type: string
+          format: uuid
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        quantity_reserved:
+          type: integer
+        google_event_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    RentalRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        resource_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        requested_start_at:
+          type: string
+          format: date-time
+        requested_end_at:
+          type: string
+          format: date-time
+        request_comment:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/RentalRequestStatus"
+        decision_comment:
+          type: string
+          nullable: true
+        processed_by:
+          type: string
+          format: uuid
+          nullable: true
+        processed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        resource:
+          $ref: "#/components/schemas/Resource"
+        processed_by_user:
+          $ref: "#/components/schemas/User"
+
+    CompanyApplication:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_name:
+          type: string
+        inn:
+          type: string
+        contact_email:
+          type: string
+          format: email
+        contact_phone:
+          type: string
+        contact_first_name:
+          type: string
+        contact_last_name:
+          type: string
+        contact_patronymic:
+          type: string
+          nullable: true
+        selected_plan:
+          type: string
+          enum: [basic, pro, enterprise]
+        payment_method:
+          type: string
+        status:
+          type: string
+        review_comment:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserResponse:
+      type: object
+      properties:
+        user:
+          allOf:
+            - $ref: "#/components/schemas/User"
+            - type: object
+              properties:
+                memberships:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Membership"
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        patronymic:
+          type: string
+          maxLength: 100
+
+    SelectCompanyRequest:
+      type: object
+      required: [companyId]
+      properties:
+        companyId:
+          type: string
+          format: uuid
+
+    SelectCompanyResponse:
+      type: object
+      required: [ok, companyId]
+      properties:
+        ok:
+          type: boolean
+        companyId:
+          type: string
+          format: uuid
+
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    PasswordResetConfirmRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+
+    MyCompaniesResponse:
+      type: object
+      properties:
+        companies:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/Company"
+              - type: object
+                properties:
+                  membership:
+                    $ref: "#/components/schemas/Membership"
+                  role:
+                    $ref: "#/components/schemas/Role"
+
+    MembersResponse:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/Membership"
+
+    RolesResponse:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Role"
+
+    ResourcesResponse:
+      type: object
+      properties:
+        resources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Resource"
+
+    ResourceExceptionsResponse:
+      type: object
+      properties:
+        exceptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceUserException"
+
+    AvailabilityResponse:
+      type: object
+      required: [availability]
+      properties:
+        availability:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+          description: |
+            Карта доступности по дням. Ключ — дата в формате YYYY-MM-DD,
+            значение — число свободных единиц ресурса на этот день.
+          example:
+            "2026-05-27": 2
+            "2026-05-28": 1
+            "2026-05-29": 0
+
+    RentalsResponse:
+      type: object
+      properties:
+        rentals:
+          type: array
+          items:
+            $ref: "#/components/schemas/RentalRequest"
+
+    AddMemberRequest:
+      type: object
+      required: [email, role_id]
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 50
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        patronymic:
+          type: string
+          maxLength: 100
+        role_id:
+          type: string
+          format: uuid
+
+    UpdateMemberRoleRequest:
+      type: object
+      required: [role_id]
+      properties:
+        role_id:
+          type: string
+          format: uuid
+
+    UpdateMemberStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [active, blocked]
+
+    CreateRoleRequest:
+      type: object
+      required: [name, code, priority]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+        priority:
+          type: integer
+          minimum: 0
+        description:
+          type: string
+          maxLength: 500
+
+    UpdateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+        priority:
+          type: integer
+          minimum: 0
+        description:
+          type: string
+          maxLength: 500
+
+    CreateResourceRequest:
+      type: object
+      required: [name, code, quantity_total]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 1000
+        category:
+          type: string
+          maxLength: 100
+        quantity_total:
+          type: integer
+          minimum: 1
+        quantity_active:
+          type: integer
+          minimum: 0
+        min_role_id:
+          type: string
+          format: uuid
+
+    UpdateResourceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 1000
+        category:
+          type: string
+          maxLength: 100
+        quantity_total:
+          type: integer
+          minimum: 1
+        quantity_active:
+          type: integer
+          minimum: 0
+        min_role_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    CreateResourceExceptionRequest:
+      type: object
+      required: [user_id, rule_type]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        rule_type:
+          $ref: "#/components/schemas/ResourceExceptionRuleType"
+        reason:
+          type: string
+          maxLength: 500
+
+    CreateRentalRequest:
+      type: object
+      required: [resource_id, requested_start_at, requested_end_at]
+      properties:
+        resource_id:
+          type: string
+          format: uuid
+        requested_start_at:
+          type: string
+          format: date-time
+        requested_end_at:
+          type: string
+          format: date-time
+        comment:
+          type: string
+          maxLength: 2000
+
+    RentalDecisionRequest:
+      type: object
+      properties:
+        decision_comment:
+          type: string
+          maxLength: 1000
+
+    StatisticsOverviewResponse:
+      type: object
+      properties:
+        totalResources:
+          type: integer
+        totalRentalsInPeriod:
+          type: integer
+        approvedCount:
+          type: integer
+        rejectedCount:
+          type: integer
+        uniqueUsers:
+          type: integer
+
+    StatisticsResourcesResponse:
+      type: object
+      properties:
+        resourceUtilization:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceId:
+                type: string
+                format: uuid
+              resourceName:
+                type: string
+              resourceCode:
+                type: string
+              category:
+                type: string
+                nullable: true
+              loadPercent:
+                type: number
+                format: float
+              totalRentals:
+                type: integer
+        topRentedResources:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceId:
+                type: string
+                format: uuid
+              resourceName:
+                type: string
+              resourceCode:
+                type: string
+              rentalCount:
+                type: integer
+
+    StatisticsRentalsResponse:
+      type: object
+      properties:
+        rentalsByStatus:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              count:
+                type: integer
+        peakDemandPeriods:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              count:
+                type: integer
+
+    CreateCompanyApplicationRequest:
+      type: object
+      required:
+        - company_name
+        - inn
+        - contact_email
+        - contact_phone
+        - contact_first_name
+        - contact_last_name
+        - selected_plan
+        - payment_method
+      properties:
+        company_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        inn:
+          type: string
+          minLength: 10
+          maxLength: 12
+        contact_email:
+          type: string
+          format: email
+        contact_phone:
+          type: string
+          minLength: 1
+          maxLength: 50
+        contact_first_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        contact_last_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        contact_patronymic:
+          type: string
+          maxLength: 100
+        selected_plan:
+          type: string
+          enum: [basic, pro, enterprise]
+        payment_method:
+          type: string
+          minLength: 1
+          maxLength: 50
+
+    CreateCompanyApplicationResponse:
+      type: object
+      properties:
+        application:
+          $ref: "#/components/schemas/CompanyApplication"
+        contactEmailLockedToSession:
+          type: boolean
+
+    CompanyApplicationsResponse:
+      type: object
+      properties:
+        applications:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompanyApplication"
+
+    CompanyApplicationResponse:
+      type: object
+      properties:
+        application:
+          $ref: "#/components/schemas/CompanyApplication"
+
+    ReviewApplicationRequest:
+      type: object
+      properties:
+        review_comment:
+          type: string
+          maxLength: 1000
+
+    ApproveApplicationResponse:
+      type: object
+      properties:
+        company:
+          $ref: "#/components/schemas/Company"
+        application:
+          $ref: "#/components/schemas/CompanyApplication"

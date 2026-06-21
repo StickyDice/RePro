@@ -1,0 +1,41 @@
+@startuml repro-request-flow
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+title Рисунок — Обработка запроса к tenant-API
+
+actor "Клиент\n(Next.js)" as Client
+participant "NestJS\nController" as Controller
+participant "AuthGuard" as AuthGuard
+participant "TenantGuard" as TenantGuard
+participant "RoleGuard" as RoleGuard
+participant "Service" as Service
+participant "Prisma" as Prisma
+database "PostgreSQL" as DB
+
+Client -> Controller : HTTP-запрос\nAuthorization: Bearer JWT\nX-Company-Id: uuid
+
+Controller -> AuthGuard : проверка токена
+AuthGuard -> AuthGuard : verify JWT через Supabase
+AuthGuard --> Controller : user id
+
+Controller -> TenantGuard : проверка tenant
+TenantGuard -> Prisma : membership по\ncompany_id + user_id
+Prisma -> DB : SELECT Membership
+DB --> Prisma : membership + role
+Prisma --> TenantGuard : активное членство
+TenantGuard --> Controller : tenant-контекст
+
+Controller -> RoleGuard : проверка прав
+RoleGuard -> RoleGuard : priority >= min
+RoleGuard --> Controller : доступ разрешён
+
+Controller -> Service : бизнес-логика
+Service -> Prisma : запрос с company_id
+Prisma -> DB : SQL
+DB --> Prisma : данные
+Prisma --> Service : результат
+Service --> Controller : DTO-ответ
+Controller --> Client : JSON
+
+@enduml

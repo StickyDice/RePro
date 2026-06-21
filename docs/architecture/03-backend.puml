@@ -1,0 +1,94 @@
+@startuml repro-backend
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+
+title Рисунок — Компоненты серверной части (services/backend)
+
+component "NestJS REST API :4000" as NestAPI
+
+package "Guards и контекст" as Guards {
+  component "AuthGuard\nJWT Supabase" as AuthGuard
+  component "TenantGuard\nX-Company-Id" as TenantGuard
+  component "RoleGuard\nmin priority" as RoleGuard
+  component "PlatformAdminGuard" as PlatformAdminGuard
+  component "TenantContextService" as TenantContext
+}
+
+package "Функциональные модули" as Modules {
+  component "AuthModule" as AuthModule
+  component "CompaniesModule" as CompaniesModule
+  component "ResourcesModule" as ResourcesModule
+  component "RentalsModule" as RentalsModule
+  component "StatisticsModule" as StatisticsModule
+  component "CompanyApplicationsModule" as CompanyAppsModule
+  component "PlatformAdminModule" as PlatformAdminModule
+  component "HealthModule" as HealthModule
+}
+
+package "Сервисный слой" as Services {
+  component "AuthService" as AuthService
+  component "CompaniesService" as CompaniesService
+  component "ResourcesService\nResourceAccessService" as ResourcesService
+  component "RentalsService" as RentalsService
+  component "StatisticsService" as StatisticsService
+  component "CompanyApplicationsService" as CompanyAppsService
+  component "PlatformAdminService" as PlatformAdminService
+}
+
+package "Инфраструктура" as Infra {
+  component "PrismaModule" as PrismaModule
+  component "NotificationModule" as NotificationModule
+  component "AuditModule" as AuditModule
+  component "CalendarModule" as CalendarModule
+}
+
+cloud "Supabase GoTrue" as GoTrue
+database "PostgreSQL" as Postgres
+
+NestAPI --> AuthGuard
+AuthGuard --> TenantGuard
+TenantGuard --> RoleGuard
+RoleGuard --> PlatformAdminGuard
+
+AuthGuard --> TenantContext
+TenantGuard --> TenantContext
+RoleGuard --> TenantContext
+
+RoleGuard --> Modules
+
+AuthModule --> AuthService
+CompaniesModule --> CompaniesService
+ResourcesModule --> ResourcesService
+RentalsModule --> RentalsService
+StatisticsModule --> StatisticsService
+CompanyAppsModule --> CompanyAppsService
+PlatformAdminModule --> PlatformAdminService
+
+AuthService --> GoTrue
+AuthService --> PrismaModule
+CompaniesService --> PrismaModule
+ResourcesService --> PrismaModule
+RentalsService --> PrismaModule
+RentalsService --> NotificationModule
+RentalsService --> AuditModule
+RentalsService --> CalendarModule
+StatisticsService --> PrismaModule
+CompanyAppsService --> PrismaModule
+PlatformAdminService --> PrismaModule
+
+PrismaModule --> Postgres
+
+note right of TenantGuard
+  Multi-tenancy:
+  shared DB + shared schema,
+  изоляция через company_id.
+end note
+
+note bottom of CalendarModule
+  Опциональная интеграция
+  с Google Calendar.
+end note
+
+@enduml

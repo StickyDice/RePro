@@ -1,0 +1,68 @@
+@startuml repro-frontend
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+
+title Рисунок — Компоненты клиентской части (services/frontend)
+
+actor "Пользователь" as User
+
+component "Next.js App Router" as NextApp
+
+package "Страницы (app/)" as Pages {
+  component "Аутентификация\n/login, /password-reset" as AuthPages
+  component "Онбординг\n/company-application" as OnboardingPages
+  component "Рабочая область\n/dashboard, /resources" as WorkspacePages
+  component "Бронирования\n/my-rentals, /calendar" as RentalPages
+  component "Поддержка\n/support/rentals" as SupportPages
+  component "Администрирование\n/admin" as AdminPages
+  component "Аналитика\n/statistics" as StatsPages
+  component "Платформа\n/platform/company-applications" as PlatformPages
+}
+
+package "Виджеты (widgets/)" as Widgets {
+  component "AppShell / Sidebar" as AppShell
+  component "ResourceList" as ResourceList
+  component "RentalQueue" as RentalQueue
+  component "SupportRentalQueue" as SupportQueue
+  component "StatisticsDashboard" as StatsDashboard
+  component "PlatformCompanyApplications" as PlatformApps
+}
+
+package "Функции (features/)" as Features {
+  component "AuthProvider\nLoginForm" as AuthFeature
+  component "CreateRentalForm" as RentalFeature
+  component "CompanyApplicationForm" as AppFormFeature
+  component "ProfileSettings" as ProfileFeature
+}
+
+package "Общий слой (shared/)" as Shared {
+  component "API Client" as ApiClient
+  component "Supabase Client" as SupabaseClient
+  component "Role Access\nSelected Company" as AccessLib
+}
+
+cloud "Supabase Auth" as SupabaseAuth
+component "NestJS REST API" as Backend
+
+User --> NextApp
+
+NextApp --> AppShell
+AppShell --> Pages
+Pages --> Widgets
+Pages --> Features
+
+AuthFeature --> SupabaseClient
+AuthFeature --> ApiClient
+RentalFeature --> ApiClient
+AppFormFeature --> ApiClient
+ProfileFeature --> ApiClient
+
+Features --> AccessLib
+Widgets --> AccessLib
+
+SupabaseClient --> SupabaseAuth
+ApiClient --> Backend
+
+@enduml

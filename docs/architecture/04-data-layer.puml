@@ -1,0 +1,67 @@
+@startuml repro-data-layer
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+
+title Рисунок — Слой данных PostgreSQL (Prisma)
+
+database "PostgreSQL\npublic schema" as Postgres
+
+package "Глобальные сущности" as Global {
+  component "User" as User
+  component "CompanyApplication" as CompanyApplication
+  component "Plan" as Plan
+}
+
+package "Tenant-сущности\n(company_id)" as Tenant {
+  component "Company" as Company
+  component "Membership" as Membership
+  component "Role" as Role
+  component "Resource" as Resource
+  component "ResourceUserException" as ResourceException
+  component "RentalRequest" as RentalRequest
+  component "RentalAllocation" as RentalAllocation
+  component "Notification" as Notification
+  component "AuditLog" as AuditLog
+}
+
+component "Prisma ORM" as Prisma
+
+Prisma --> Postgres
+
+Prisma --> Global
+Prisma --> Tenant
+
+Company --> Membership
+Company --> Role
+Company --> Resource
+Company --> RentalRequest
+Company --> RentalAllocation
+Company --> Notification
+Company --> AuditLog
+
+User --> Membership
+User --> RentalRequest
+User --> ResourceException
+User --> Notification
+User --> AuditLog
+
+Role --> Membership
+Role --> Resource : min_role
+
+Resource --> ResourceException
+Resource --> RentalRequest
+Resource --> RentalAllocation
+
+RentalRequest --> RentalAllocation
+
+Plan --> Company : selected_plan
+
+note bottom of Tenant
+  Все tenant-таблицы содержат company_id.
+  Запросы фильтруются на уровне сервисов
+  и guards по активной организации.
+end note
+
+@enduml

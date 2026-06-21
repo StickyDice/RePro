@@ -1,0 +1,41 @@
+@startuml repro-deployment-overview
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+
+title Рисунок — Общая архитектура развёртывания RePro
+
+actor "Пользователь" as User
+
+node "Docker Compose" as Docker {
+  component "Frontend\nNext.js :3000" as Frontend
+  component "Backend\nNestJS :4000" as Backend
+
+  cloud "Supabase stack" as SupabaseStack {
+    component "Kong :54321" as Kong
+    component "GoTrue Auth" as GoTrue
+    component "Supabase Studio" as Studio
+  }
+
+  database "PostgreSQL" as Postgres
+}
+
+User --> Frontend : HTTPS\nвеб-интерфейс
+
+Frontend --> Kong : вход, регистрация,\nсброс пароля
+Frontend --> Backend : REST API\nBearer JWT\nX-Company-Id
+
+Backend --> GoTrue : проверка JWT
+Backend --> Postgres : Prisma ORM
+
+Kong --> GoTrue
+GoTrue --> Postgres
+Studio --> Postgres
+
+note bottom of Backend
+  Единая кодовая база обслуживает
+  несколько организаций (multi-tenancy).
+end note
+
+@enduml
